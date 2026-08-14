@@ -28,4 +28,4 @@ Quick steps to import into Vercel (static frontend only):
 2. In Vercel dashboard choose "Import Project" → select this GitHub repo.
 3. For "Root Directory" use `/` and Vercel will pick up `vercel.json` which serves the `public` folder.
 
-If you want, I can help convert the Express API into Vercel Serverless Functions and modify uploads to use S3/Supabase storage — tell me which storage provider you prefer and I will prepare the code.
+If you want, I can help convert the Express API into Vercel Serverless Functions and modify uploads to use cloud storage. For now the project uses the local Express `server.js` for uploads and seating persistence during local development. Vercel will serve the static frontend from `public/`.
