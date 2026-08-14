@@ -117,5 +117,18 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// Error handler - always respond with JSON for API routes
+app.use((err, req, res, next) => {
+  if (res.headersSent) return next(err);
+  const status = err.status || 500;
+  // If request looks like an API call, return JSON
+  if (req.path.startsWith('/api') || req.xhr || req.headers.accept && req.headers.accept.indexOf('application/json') !== -1) {
+    res.status(status).type('application/json').json({ error: err.message || 'Internal Server Error' });
+  } else {
+    // for non-API requests, send plain text or index
+    res.status(status).type('text/plain').send(err.message || 'Internal Server Error');
+  }
+});
+
 const port = process.env.PORT || 3000;
 app.listen(port, () => console.log(`Server running at http://localhost:${port}`));
