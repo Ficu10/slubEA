@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Wesele Emilki i Adasia</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header>
+    <h1>Emilka & Adaś</h1>
+    <p class="date">10.10.2026</p>
+    <nav class="top-nav">
+      <a href="/seating.html" class="btn-outline">Rozmieszczenie stołów</a>
+      <a href="/login.html" class="btn-primary">Zaloguj</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="info">
+      <h2>Informacje o weselu</h2>
+      <p>Przyjęcie weselne: Modrzewiowy Dwór, ul. Mazowiecka 44, Gliwice.</p>
+      <p>Ceremonia ślubna: Kościół św. Pawła Apostoła, Zabrze-Pawłów, ul. gen. Władysława Sikorskiego 67b.</p>
+    </section>
+
+    <section class="uploader">
+      <h2>Wrzuć zdjęcia i filmy</h2>
+      
+      <form id="uploadForm">
+        <input type="file" id="files" name="files" multiple accept="image/*,video/*">
+        <button type="submit">Prześlij</button>
+      </form>
+      <div id="uploadStatus"></div>
+    </section>
+
+    <section class="gallery">
+      <h2>Galeria</h2>
+      <div class="gallery-sections">
+        <div class="photos">
+          <h3>Zdjęcia</h3>
+          <div id="galleryPhotos" class="galleryGrid">Ładowanie...</div>
+        </div>
+        <div class="videos">
+          <h3>Filmy</h3>
+          <div id="galleryVideos" class="galleryGrid">Ładowanie...</div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>Serdecznie zapraszamy — Emilka & Adaś</p>
+  </footer>
+
+    <script>
+    async function loadGallery(){
+      const res = await fetch('/api/files');
+      const items = await res.json();
+      const photosGrid = document.getElementById('galleryPhotos');
+      const videosGrid = document.getElementById('galleryVideos');
+      photosGrid.innerHTML = '';
+      videosGrid.innerHTML = '';
+      const photos = items.filter(i => i.type === 'image');
+      const videos = items.filter(i => i.type === 'video');
+      const adminToken = localStorage.getItem('adminToken');
+      if (!photos.length) photosGrid.innerHTML = '<p>Brak przesłanych zdjęć.</p>';
+      else photos.forEach(item => {
+        const card = document.createElement('div'); card.className = 'card';
+        const img = document.createElement('img'); img.src = item.url; img.alt = item.name; card.appendChild(img);
+        if (adminToken){
+          const del = document.createElement('button'); del.textContent = 'Usuń'; del.style.marginTop='8px'; del.style.background='#c23333'; del.style.border='none'; del.style.color='#fff'; del.style.padding='6px 8px'; del.style.borderRadius='6px';
+          del.addEventListener('click', async (e)=>{
+            e.stopPropagation();
+            if (!confirm('Usunąć ten plik?')) return;
+            const token = localStorage.getItem('adminToken');
+            const res = await fetch('/api/files/' + encodeURIComponent(item.name), { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + token } });
+            if (res.ok) { loadGallery(); } else { alert('Błąd usuwania'); }
+          });
+          card.appendChild(del);
+        }
+        photosGrid.appendChild(card);
+      });
+      if (!videos.length) videosGrid.innerHTML = '<p>Brak przesłanych filmów.</p>';
+      else videos.forEach(item => {
+        const card = document.createElement('div'); card.className = 'card';
+        const vid = document.createElement('video'); vid.src = item.url; vid.controls = true; card.appendChild(vid);
+        if (adminToken){
+          const del = document.createElement('button'); del.textContent = 'Usuń'; del.style.marginTop='8px'; del.style.background='#c23333'; del.style.border='none'; del.style.color='#fff'; del.style.padding='6px 8px'; del.style.borderRadius='6px';
+          del.addEventListener('click', async (e)=>{
+            e.stopPropagation();
+            if (!confirm('Usunąć ten plik?')) return;
+            const token = localStorage.getItem('adminToken');
+            const res = await fetch('/api/files/' + encodeURIComponent(item.name), { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + token } });
+            if (res.ok) { loadGallery(); } else { alert('Błąd usuwania'); }
+          });
+          card.appendChild(del);
+        }
+        videosGrid.appendChild(card);
+      });
+    }
+
+    document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const input = document.getElementById('files');
+      if (!input.files.length) return alert('Wybierz pliki.');
+      const form = new FormData();
+      for (const f of input.files) form.append('files', f);
+      const status = document.getElementById('uploadStatus');
+      status.textContent = 'Wysyłanie...';
+      try {
+        const res = await fetch('/api/upload', { method: 'POST', body: form });
+        const data = await res.json();
+        if (data.success) { status.textContent = 'Wysłano!'; input.value = ''; loadGallery(); }
+        else status.textContent = 'Błąd podczas wysyłania.';
+      } catch (err) { status.textContent = 'Błąd: ' + err.message; }
+      setTimeout(()=> status.textContent = '', 3000);
+    });
+
+    loadGallery();
+  </script>
+</body>
+</html>

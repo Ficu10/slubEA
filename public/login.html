@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Logowanie — Wesele</title>
+  <link rel="stylesheet" href="/styles.css">
+  <style>body{padding:30px} .login-box{max-width:420px;margin:30px auto;background:var(--panel);padding:18px;border-radius:10px;border:1px solid rgba(0,0,0,0.04)}</style>
+</head>
+<body>
+  <header>
+    <h1>Logowanie</h1>
+    <nav class="top-nav">
+      <a href="/" class="btn-outline">Strona główna</a>
+      <a href="/seating.html" class="btn-outline">Rozmieszczenie stołów</a>
+    </nav>
+  </header>
+  <main>
+    <div class="login-box">
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <input id="user" placeholder="Login" style="padding:8px;border-radius:6px;border:1px solid #ddd" autocomplete="username">
+        <input id="pass" placeholder="Hasło" type="password" style="padding:8px;border-radius:6px;border:1px solid #ddd" autocomplete="current-password">
+        <div style="display:flex;gap:8px"><button id="loginBtn">Zaloguj</button><a href="/" class="btn-outline">Anuluj</a></div>
+        <div id="msg" style="color:#c33"></div>
+      </div>
+    </div>
+  </main>
+  <script>
+    document.getElementById('loginBtn').addEventListener('click', async ()=>{
+      const user = document.getElementById('user').value;
+      const pass = document.getElementById('pass').value;
+      try{
+        const res = await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user,pass})});
+        if (!res.ok) throw new Error('Nieprawidłowe dane');
+        const data = await res.json();
+        if (data && data.token){
+          localStorage.setItem('adminToken', data.token);
+          // go back if possible
+          const ref = document.referrer || '/';
+          window.location = ref;
+        } else document.getElementById('msg').textContent = 'Błąd logowania';
+      }catch(e){ document.getElementById('msg').textContent = 'Błąd logowania'; }
+    });
+  </script>
+</body>
+</html>

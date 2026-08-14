@@ -1,0 +1,67 @@
+
+*{box-sizing:border-box}
+:root{
+	--bg:#f6fbf6;
+	--panel:#ffffff;
+	--green:#2f6f4e;
+	--olive:#6b8e23;
+	--muted:#6b6b6b;
+}
+body{font-family:Inter, Segoe UI, Arial, sans-serif;max-width:1000px;margin:0 auto;padding:20px;background:var(--bg);color:#123}
+header{text-align:center;padding:28px 12px;position:relative;overflow:visible}
+header h1{font-family:'Playfair Display', serif;font-size:40px;margin:0;color:var(--green);letter-spacing:0.5px}
+.date{font-weight:600;color:var(--muted);margin-top:6px}
+.info, .uploader, .gallery{background:var(--panel);border:1px solid rgba(47,111,78,0.08);padding:18px;margin:18px 0;border-radius:12px;box-shadow:0 6px 18px rgba(31,86,62,0.04)}
+form{display:flex;gap:8px;align-items:center}
+.gallery-sections{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.galleryGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.card{background:linear-gradient(180deg, #fff, #fbfff9);padding:10px;border-radius:10px;border:1px solid rgba(16,52,36,0.04);box-shadow:0 2px 6px rgba(27,73,50,0.03)}
+.card img{width:100%;height:auto;border-radius:6px}
+.card video{width:100%;height:auto;border-radius:6px}
+button{padding:10px 14px;border-radius:8px;border:none;background:var(--green);color:#fff;font-weight:600}
+
+/* Decorative olive leaves in header and footer using pseudo-elements */
+header::before, header::after{
+	content:'';position:absolute;width:160px;height:80px;background-image:url('/assets/branch.svg');background-size:contain;background-repeat:no-repeat;opacity:0.95;transform:translateY(-10%);pointer-events:none;z-index:0;
+}
+header::before{left:-14px;top:4px;transform:rotate(-12deg) scale(1)}
+/* move right branch lower so it sits under the login button */
+header::after{right:-14px;top:46px;transform:rotate(6deg) scale(1)}
+
+footer{display:flex;justify-content:center;padding:18px 0;color:var(--muted);font-size:14px}
+
+/* responsive tweaks */
+@media (max-width:900px){
+	.gallery-sections{grid-template-columns:1fr}
+}
+@media (max-width:600px){
+	header h1{font-size:28px}
+	.galleryGrid{grid-template-columns:repeat(auto-fill,minmax(160px,1fr));}
+}
+
+.gallery h3{margin:8px 0 12px;color:var(--green);font-family:'Playfair Display',serif}
+
+/* Decorative olives on info and uploader panels */
+.info, .uploader{position:relative}
+.info::before{
+	content:'';position:absolute;left:-18px;top:-24px;width:100px;height:48px;background-image:url('/assets/branch.svg');background-size:contain;background-repeat:no-repeat;opacity:0.9;transform:rotate(-6deg);
+}
+.uploader::after{
+	content:'';position:absolute;right:-12px;bottom:-12px;width:36px;height:36px;background-image:url('/assets/olive.svg');background-size:contain;background-repeat:no-repeat;opacity:0.95;
+}
+
+/* seating page small tweaks */
+.seating-controls input{border:1px solid rgba(16,52,36,0.06);padding:8px;border-radius:8px}
+.hall{max-width:100%;}
+.table .names{white-space:pre-line}
+
+/* Top navigation */
+.top-nav{position:absolute;right:34px;top:18px;display:flex;gap:8px;align-items:center;z-index:30}
+.top-nav .btn-outline{background:transparent;border:1px solid rgba(47,111,78,0.12);padding:8px 12px;border-radius:10px;color:var(--green);font-weight:600}
+.top-nav a{cursor:pointer}
+.btn-primary{display:inline-block;padding:8px 12px;border-radius:10px;border:none;background:var(--green);color:#fff;text-decoration:none;font-weight:700}
+.top-nav .btn-primary{box-shadow:0 6px 18px rgba(47,111,78,0.12)}
+
+@media (max-width:700px){
+	.top-nav{position:static;margin-top:12px;justify-content:center}
+}
