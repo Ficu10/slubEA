@@ -23,7 +23,7 @@
           <input id="pass" placeholder="Hasło" type="password" style="flex:1;padding:8px;border-radius:6px;border:1px solid #ddd" autocomplete="current-password">
           <button id="togglePass" type="button" title="Pokaż/ukryj hasło" style="padding:6px 8px;margin-left:6px;border-radius:6px;border:1px solid rgba(0,0,0,0.08);background:#fff">Pokaż</button>
         </div>
-        <div style="display:flex;gap:8px"><button id="loginBtn">Zaloguj</button><a href="/" class="btn-outline">Anuluj</a></div>
+        <div style="display:flex;gap:8px"><button id="loginBtn" type="button">Zaloguj</button><a href="/" class="btn-outline">Anuluj</a></div>
         <div id="msg" style="color:#c33"></div>
       </div>
     </div>
@@ -81,12 +81,20 @@
     clearBtn.style.marginTop = '8px'; clearBtn.style.padding = '6px 8px'; clearBtn.className = 'btn-outline';
     clearBtn.addEventListener('click', async ()=>{
       updateDebug && updateDebug('clearing_caches');
+      // Clear caches
       if ('caches' in window){
-        try{
-          const keys = await caches.keys();
-          await Promise.all(keys.map(k=>caches.delete(k)));
-        }catch(e){ console.warn('cache clear err', e); }
+        try{ const keys = await caches.keys(); await Promise.all(keys.map(k=>caches.delete(k))); }catch(e){ console.warn('cache clear err', e); }
       }
+      // Unregister service workers
+      if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations){
+        try{
+          const regs = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(regs.map(r=>r.unregister()));
+          console.log('Service workers unregistered', regs.length);
+        }catch(e){ console.warn('SW unregister err', e); }
+      }
+      // clear localStorage (keep nothing sensitive)
+      try{ localStorage.removeItem('adminToken'); localStorage.removeItem('user'); }catch(e){}
       // force reload with cache-busting query
       const url = new URL(window.location.href);
       url.searchParams.set('_', Date.now());
