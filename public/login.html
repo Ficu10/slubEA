@@ -19,27 +19,36 @@
     <div class="login-box">
       <div style="display:flex;flex-direction:column;gap:8px">
         <input id="user" placeholder="Login" style="padding:8px;border-radius:6px;border:1px solid #ddd" autocomplete="username">
-        <input id="pass" placeholder="Hasło" type="password" style="padding:8px;border-radius:6px;border:1px solid #ddd" autocomplete="current-password">
+        <div style="display:flex;gap:8px;align-items:center">
+          <input id="pass" placeholder="Hasło" type="password" style="flex:1;padding:8px;border-radius:6px;border:1px solid #ddd" autocomplete="current-password">
+          <button id="togglePass" type="button" title="Pokaż/ukryj hasło" style="padding:6px 8px;margin-left:6px;border-radius:6px;border:1px solid rgba(0,0,0,0.08);background:#fff">Pokaż</button>
+        </div>
         <div style="display:flex;gap:8px"><button id="loginBtn">Zaloguj</button><a href="/" class="btn-outline">Anuluj</a></div>
         <div id="msg" style="color:#c33"></div>
       </div>
     </div>
   </main>
   <script>
-    document.getElementById('loginBtn').addEventListener('click', async ()=>{
-      const user = document.getElementById('user').value;
-      const pass = document.getElementById('pass').value;
-      try{
-        const body = new URLSearchParams({ user, pass });
-        const res = await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:body.toString()});
-        if (!res.ok) throw new Error('Nieprawidłowe dane');
-        const data = await res.json();
-        if (data && data.token){
-          localStorage.setItem('adminToken', data.token);
-          const ref = document.referrer || '/';
-          window.location = ref;
-        } else document.getElementById('msg').textContent = 'Błąd logowania';
-      }catch(e){ document.getElementById('msg').textContent = 'Błąd logowania'; }
+    // Toggle password visibility
+    document.getElementById('togglePass').addEventListener('click', ()=>{
+      const p = document.getElementById('pass');
+      const btn = document.getElementById('togglePass');
+      if (p.type === 'password'){ p.type = 'text'; btn.textContent = 'Ukryj'; }
+      else { p.type = 'password'; btn.textContent = 'Pokaż'; }
+    });
+
+    // Local login (no server) - simple credential check
+    document.getElementById('loginBtn').addEventListener('click', ()=>{
+      const user = (document.getElementById('user').value || '').trim();
+      const pass = (document.getElementById('pass').value || '').trim();
+      const msg = document.getElementById('msg');
+      if (!user || !pass){ msg.textContent = 'Podaj login i hasło.'; return; }
+      if (user === 'adas' && pass === 'emilka'){
+        const token = Math.random().toString(36).slice(2) + Date.now().toString(36);
+        localStorage.setItem('adminToken', token);
+        msg.style.color = 'green'; msg.textContent = 'Zalogowano.';
+        setTimeout(()=>{ const ref = document.referrer || '/'; window.location = ref; }, 600);
+      } else { msg.style.color = '#c33'; msg.textContent = 'Nieprawidłowy login lub hasło.'; }
     });
   </script>
   <script src="/auth.js"></script>
