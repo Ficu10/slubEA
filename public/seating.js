@@ -21,6 +21,8 @@
     try{
       const res = await fetch('/api/seating');
       if (!res.ok) throw new Error('no-server');
+      const ct = res.headers.get('content-type') || '';
+      if (!ct.includes('application/json')) throw new Error('no-json');
       const data = await res.json();
       if (data.positions && data.positions.length) positions = data.positions;
       if (data.assignments) assignments = data.assignments;
