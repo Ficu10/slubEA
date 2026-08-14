@@ -57,12 +57,29 @@
 
     <script>
     async function loadGallery(){
-      const res = await fetch('/api/files');
-      const items = await res.json();
       const photosGrid = document.getElementById('galleryPhotos');
       const videosGrid = document.getElementById('galleryVideos');
       photosGrid.innerHTML = '';
       videosGrid.innerHTML = '';
+      let res;
+      try {
+        res = await fetch('/api/files');
+      } catch (err){
+        photosGrid.innerHTML = '<p>Błąd połączenia z serwerem.</p>';
+        videosGrid.innerHTML = '';
+        return;
+      }
+      if (!res.ok){
+        const text = await res.text().catch(()=>res.statusText||'Błąd serwera');
+        photosGrid.innerHTML = `<p>Błąd serwera: ${text}</p>`;
+        return;
+      }
+      let items;
+      try { items = await res.json(); }
+      catch(e){
+        photosGrid.innerHTML = '<p>Nieprawidłowa odpowiedź serwera.</p>';
+        return;
+      }
       const photos = items.filter(i => i.type === 'image');
       const videos = items.filter(i => i.type === 'video');
       const adminToken = localStorage.getItem('adminToken');
@@ -112,9 +129,18 @@
       status.textContent = 'Wysyłanie...';
       try {
         const res = await fetch('/api/upload', { method: 'POST', body: form });
-        const data = await res.json();
-        if (data.success) { status.textContent = 'Wysłano!'; input.value = ''; loadGallery(); }
-        else status.textContent = 'Błąd podczas wysyłania.';
+        const ct = res.headers.get('content-type') || '';
+        if (!res.ok){
+          const text = await res.text().catch(()=>res.statusText||'Błąd serwera');
+          status.textContent = 'Błąd serwera: ' + text;
+        } else if (!ct.includes('application/json')){
+          const text = await res.text().catch(()=>'');
+          status.textContent = 'Nieoczekiwana odpowiedź serwera: ' + (text.slice?text.slice(0,200):'');
+        } else {
+          const data = await res.json();
+          if (data.success) { status.textContent = 'Wysłano!'; input.value = ''; loadGallery(); }
+          else status.textContent = 'Błąd podczas wysyłania.';
+        }
       } catch (err) { status.textContent = 'Błąd: ' + err.message; }
       setTimeout(()=> status.textContent = '', 3000);
     });
