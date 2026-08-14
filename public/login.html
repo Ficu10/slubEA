@@ -73,7 +73,26 @@
     // Debug element
     const debugInfo = document.createElement('div');
     debugInfo.id = 'debugInfo'; debugInfo.style.marginTop = '8px'; debugInfo.style.color = '#a33'; debugInfo.style.whiteSpace = 'pre-wrap';
-    document.querySelector('.login-box > div').appendChild(debugInfo);
+    const controls = document.querySelector('.login-box > div');
+    controls.appendChild(debugInfo);
+    // Add clear-cache + reload button
+    const clearBtn = document.createElement('button');
+    clearBtn.type = 'button'; clearBtn.textContent = 'Wyczyść cache i odśwież';
+    clearBtn.style.marginTop = '8px'; clearBtn.style.padding = '6px 8px'; clearBtn.className = 'btn-outline';
+    clearBtn.addEventListener('click', async ()=>{
+      updateDebug && updateDebug('clearing_caches');
+      if ('caches' in window){
+        try{
+          const keys = await caches.keys();
+          await Promise.all(keys.map(k=>caches.delete(k)));
+        }catch(e){ console.warn('cache clear err', e); }
+      }
+      // force reload with cache-busting query
+      const url = new URL(window.location.href);
+      url.searchParams.set('_', Date.now());
+      window.location.href = url.toString();
+    });
+    controls.appendChild(clearBtn);
 
     // Local login (no server) - simple credential check with debug
     function updateDebug(note){
