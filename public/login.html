@@ -37,19 +37,41 @@
       else { p.type = 'password'; btn.textContent = 'Pokaż'; }
     });
 
-    // Local login (no server) - simple credential check
-    document.getElementById('loginBtn').addEventListener('click', ()=>{
+    // Debug element
+    const debugInfo = document.createElement('div');
+    debugInfo.id = 'debugInfo'; debugInfo.style.marginTop = '8px'; debugInfo.style.color = '#a33'; debugInfo.style.whiteSpace = 'pre-wrap';
+    document.querySelector('.login-box > div').appendChild(debugInfo);
+
+    // Local login (no server) - simple credential check with debug
+    function updateDebug(note){
+      try{
+        const token = localStorage.getItem('adminToken');
+        const state = { note, storedToken: !!token };
+        console.log('Login debug:', state);
+        debugInfo.textContent = JSON.stringify(state, null, 2);
+      }catch(e){ console.warn('debug error', e); }
+    }
+
+    function doLogin(){
       const user = (document.getElementById('user').value || '').trim();
       const pass = (document.getElementById('pass').value || '').trim();
       const msg = document.getElementById('msg');
-      if (!user || !pass){ msg.textContent = 'Podaj login i hasło.'; return; }
+      msg.style.color = '#c33';
+      if (!user || !pass){ msg.textContent = 'Podaj login i hasło.'; updateDebug('missing_fields'); return; }
+      updateDebug(`attempt userLen=${user.length} passLen=${pass.length}`);
       if (user === 'adas' && pass === 'emilka'){
-        const token = Math.random().toString(36).slice(2) + Date.now().toString(36);
-        localStorage.setItem('adminToken', token);
-        msg.style.color = 'green'; msg.textContent = 'Zalogowano.';
-        setTimeout(()=>{ const ref = document.referrer || '/'; window.location = ref; }, 600);
-      } else { msg.style.color = '#c33'; msg.textContent = 'Nieprawidłowy login lub hasło.'; }
-    });
+        try{
+          const token = Math.random().toString(36).slice(2) + Date.now().toString(36);
+          localStorage.setItem('adminToken', token);
+          msg.style.color = 'green'; msg.textContent = 'Zalogowano.';
+          updateDebug('ok_logged_in');
+          setTimeout(()=>{ const ref = document.referrer || '/'; window.location = ref; }, 600);
+        } catch(e){ msg.textContent = 'Błąd zapisu localStorage'; updateDebug('localStorage_error'); }
+      } else { msg.textContent = 'Nieprawidłowy login lub hasło.'; updateDebug('invalid_credentials'); }
+    }
+
+    document.getElementById('loginBtn').addEventListener('click', doLogin);
+    document.getElementById('pass').addEventListener('keydown', (e)=>{ if (e.key === 'Enter') doLogin(); });
   </script>
   <script src="/auth.js"></script>
 </body>
