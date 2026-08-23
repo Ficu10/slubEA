@@ -55,7 +55,9 @@
     <p>Serdecznie zapraszamy — Emilka & Adaś</p>
   </footer>
 
+    <script src="/api-config.js"></script>
     <script>
+    const API_BASE = window.API_URL || '';
     async function loadGallery(){
       const photosGrid = document.getElementById('galleryPhotos');
       const videosGrid = document.getElementById('galleryVideos');
@@ -63,7 +65,7 @@
       videosGrid.innerHTML = '';
       let res;
       try {
-        res = await fetch('/api/files');
+        res = await fetch(API_BASE + '/api/files');
       } catch (err){
         photosGrid.innerHTML = '<p>Błąd połączenia z serwerem.</p>';
         videosGrid.innerHTML = '';
@@ -93,7 +95,7 @@
             e.stopPropagation();
             if (!confirm('Usunąć ten plik?')) return;
             const token = localStorage.getItem('adminToken');
-            const res = await fetch('/api/files/' + encodeURIComponent(item.name), { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + token } });
+            const res = await fetch(API_BASE + '/api/files/' + encodeURIComponent(item.name), { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + token } });
             if (res.ok) { loadGallery(); } else { alert('Błąd usuwania'); }
           });
           card.appendChild(del);
@@ -110,7 +112,7 @@
             e.stopPropagation();
             if (!confirm('Usunąć ten plik?')) return;
             const token = localStorage.getItem('adminToken');
-            const res = await fetch('/api/files/' + encodeURIComponent(item.name), { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + token } });
+            const res = await fetch(API_BASE + '/api/files/' + encodeURIComponent(item.name), { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + token } });
             if (res.ok) { loadGallery(); } else { alert('Błąd usuwania'); }
           });
           card.appendChild(del);
@@ -128,7 +130,7 @@
       const status = document.getElementById('uploadStatus');
       status.textContent = 'Wysyłanie...';
       try {
-        const res = await fetch('/api/upload', { method: 'POST', body: form });
+        const res = await fetch(API_BASE + '/api/upload', { method: 'POST', body: form });
         const ct = res.headers.get('content-type') || '';
         if (!res.ok){
           const text = await res.text().catch(()=>res.statusText||'Błąd serwera');

@@ -17,9 +17,10 @@
   let assignments = {};
 
   // Try load seating from server; fallback to localStorage
+  const API_BASE = window.API_URL || '';
   async function loadFromServer(){
     try{
-      const res = await fetch('/api/seating');
+      const res = await fetch(API_BASE + '/api/seating');
       if (!res.ok) throw new Error('no-server');
       const ct = res.headers.get('content-type') || '';
       if (!ct.includes('application/json')) throw new Error('no-json');
@@ -42,7 +43,7 @@
       return;
     }
     try{
-      const res = await fetch('/api/seating', { method: 'POST', headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+token }, body: JSON.stringify(body) });
+      const res = await fetch(API_BASE + '/api/seating', { method: 'POST', headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+token }, body: JSON.stringify(body) });
       if (!res.ok) throw new Error('save-failed');
     }catch(e){
       // fallback to local
