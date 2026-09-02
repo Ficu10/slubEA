@@ -1,8 +1,8 @@
-import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
 const s3 = new S3Client({
-  region: "auto",
+  region: 'auto',
   endpoint: process.env.R2_ENDPOINT || `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
   credentials: {
     accessKeyId: process.env.R2_ACCESS_KEY_ID,
@@ -10,7 +10,7 @@ const s3 = new S3Client({
   },
 });
 
-export default async function handler(req, res) {
+module.exports = async function (req, res) {
   if (req.method !== 'GET') return res.status(405).end();
   try {
     const key = req.query.key || '';
@@ -24,4 +24,4 @@ export default async function handler(req, res) {
     res.statusCode = 500;
     res.end(JSON.stringify({ error: 'internal_error' }));
   }
-}
+};
