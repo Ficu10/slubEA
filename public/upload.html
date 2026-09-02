@@ -1,0 +1,39 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Upload — bucketea</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body style="padding:20px">
+  <h1>Upload do R2</h1>
+  <input id="file" type="file" />
+  <button id="up">Wyślij</button>
+  <div id="status" style="margin-top:12px"></div>
+  <img id="preview" style="max-width:320px;display:block;margin-top:12px" />
+
+  <script>
+  async function postJson(url, body){
+    const r = await fetch(url, { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(body) });
+    return r.json();
+  }
+
+  document.getElementById('up').addEventListener('click', async ()=>{
+    const f = document.getElementById('file').files[0];
+    const s = document.getElementById('status');
+    if (!f){ s.textContent='Wybierz plik'; return; }
+    s.textContent = 'Proszę czekać...';
+    try{
+      const sig = await postJson('/api/sign-url', { filename: f.name, contentType: f.type });
+      if (!sig.url) throw new Error('no url');
+      await fetch(sig.url, { method:'PUT', headers: { 'Content-Type': f.type }, body: f });
+      const get = await fetch('/api/get-url?key=' + encodeURIComponent(sig.key));
+      const data = await get.json();
+      document.getElementById('preview').src = data.url;
+      s.textContent = 'Wysłano: ' + sig.key;
+    }catch(e){ console.error(e); s.textContent = 'Błąd: ' + e.message; }
+  });
+  </script>
+</body>
+</html>

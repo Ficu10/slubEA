@@ -1,4 +1,13 @@
 server.js
+data/
+uploads/
+.env
+*.log
+node_modules/
+*.pem
+*.key
+dist/
+server.js
 data
 uploads
 node_modules
