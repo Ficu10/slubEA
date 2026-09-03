@@ -2,6 +2,7 @@
   "version": 2,
   "name": "slubEA",
   "builds": [
+    { "src": "api/*.js", "use": "@vercel/node" },
     { "src": "public/**/*", "use": "@vercel/static" }
   ],
   "routes": [
