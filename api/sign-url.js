@@ -11,10 +11,18 @@ const s3 = new S3Client({
 });
 
 module.exports = async function (req, res) {
-  if (req.method !== 'POST') return res.status(405).end();
+  // CORS for browser requests
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'POST') return res.status(405).json({ error: 'method_not_allowed' });
   try {
+    if (!process.env.R2_BUCKET_NAME || !process.env.R2_ACCESS_KEY_ID || !process.env.R2_SECRET_ACCESS_KEY) {
+      return res.status(500).json({ error: 'missing_r2_env', message: 'R2 env vars not configured' });
+    }
     const { filename, contentType } = req.body || {};
-    if (!filename) return res.status(400).json({ error: 'missing filename' });
+    if (!filename) return res.status(400).json({ error: 'missing_filename' });
     const safeName = String(filename).replace(/[^a-zA-Z0-9._-]/g, '_');
     const key = `uploads/${Date.now()}-${safeName}`;
     const cmd = new PutObjectCommand({
@@ -23,11 +31,9 @@ module.exports = async function (req, res) {
       ContentType: contentType || 'application/octet-stream',
     });
     const url = await getSignedUrl(s3, cmd, { expiresIn: 3600 });
-    res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify({ url, key }));
+    return res.status(200).json({ url, key });
   } catch (err) {
     console.error('sign-url error', err);
-    res.statusCode = 500;
-    res.end(JSON.stringify({ error: 'internal_error' }));
+    return res.status(500).json({ error: 'internal_error', message: err.message });
   }
 };

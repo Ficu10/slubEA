@@ -16,23 +16,53 @@
   <script>
   async function postJson(url, body){
     const r = await fetch(url, { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(body) });
-    return r.json();
+    const txt = await r.text();
+    try{ return JSON.parse(txt); }catch(e){ throw new Error('Invalid JSON from server: '+txt); }
+  }
+
+  function putToUrl(url, file, onProgress){
+    return new Promise((resolve, reject)=>{
+      const xhr = new XMLHttpRequest();
+      xhr.open('PUT', url, true);
+      xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+      xhr.upload.onprogress = function(e){ if (e.lengthComputable && onProgress) onProgress(e.loaded, e.total); };
+      xhr.onload = function(){
+        if (xhr.status >= 200 && xhr.status < 300) resolve({ status: xhr.status, response: xhr.responseText });
+        else reject(new Error('Upload failed: '+xhr.status+' '+xhr.statusText+' - '+xhr.responseText));
+      };
+      xhr.onerror = function(){ reject(new Error('Network error during upload')); };
+      xhr.send(file);
+    });
   }
 
   document.getElementById('up').addEventListener('click', async ()=>{
     const f = document.getElementById('file').files[0];
     const s = document.getElementById('status');
+    const preview = document.getElementById('preview');
     if (!f){ s.textContent='Wybierz plik'; return; }
     s.textContent = 'Proszę czekać...';
+    document.getElementById('up').disabled = true;
     try{
       const sig = await postJson('/api/sign-url', { filename: f.name, contentType: f.type });
-      if (!sig.url) throw new Error('no url');
-      await fetch(sig.url, { method:'PUT', headers: { 'Content-Type': f.type }, body: f });
+      if (sig.error) throw new Error(sig.error + (sig.message ? (': '+sig.message) : ''));
+      if (!sig.url) throw new Error('Brak URL do uploadu');
+
+      // upload with progress and detailed error handling
+      await putToUrl(sig.url, f, (loaded, total)=>{
+        const pct = Math.round((loaded/total)*100);
+        s.textContent = 'Wysyłanie: ' + pct + '%';
+      });
+
+      s.textContent = 'Upload zakończony, pobieranie URL...';
       const get = await fetch('/api/get-url?key=' + encodeURIComponent(sig.key));
-      const data = await get.json();
-      document.getElementById('preview').src = data.url;
+      const txt = await get.text();
+      let data;
+      try{ data = JSON.parse(txt); }catch(e){ throw new Error('Invalid JSON from get-url: '+txt); }
+      if (data.error) throw new Error(data.error + (data.message ? (': '+data.message) : ''));
+      preview.src = data.url;
       s.textContent = 'Wysłano: ' + sig.key;
     }catch(e){ console.error(e); s.textContent = 'Błąd: ' + e.message; }
+    finally{ document.getElementById('up').disabled = false; }
   });
   </script>
 </body>
