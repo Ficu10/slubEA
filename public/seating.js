@@ -97,7 +97,8 @@
   (function addAdminControls(){
     const controls = document.querySelector('.seating-controls');
     if (!controls) return;
-    const btn = document.createElement('button'); btn.textContent = 'Dodaj stolik'; btn.className = 'btn-outline'; btn.style.marginLeft='6px';
+    if (document.getElementById('addTableBtn')) return; // already added
+    const btn = document.createElement('button'); btn.id = 'addTableBtn'; btn.textContent = 'Dodaj stolik'; btn.className = 'btn-outline'; btn.style.marginLeft='6px';
     btn.addEventListener('click', ()=>{
       if (!localStorage.getItem('adminToken')){ alert('Tylko admin może dodawać stoliki.'); return; }
       addTable();
@@ -157,13 +158,13 @@
     const ppl = assignments[tableId] || [];
     const count = ppl.length;
     if (count === 0) return;
-    // compute radius based on element size
-    const rect = el.getBoundingClientRect();
-    const w = rect.width; const h = rect.height; const radius = Math.min(w,h) * 0.55;
+    // render people outside table edge (around rim)
+    const angleStep = (Math.PI*2)/count;
+    const distancePercent = 80; // percent from center (50% is center)
     for(let i=0;i<count;i++){
-      const angle = (i / count) * Math.PI * 2 - Math.PI/2; // start at top
-      const cx = 50 + (Math.cos(angle) * 40); // percent within element
-      const cy = 50 + (Math.sin(angle) * 40);
+      const angle = (i * angleStep) - Math.PI/2; // start at top
+      const cx = 50 + Math.cos(angle) * distancePercent;
+      const cy = 50 + Math.sin(angle) * distancePercent;
       const person = document.createElement('div'); person.className = 'person';
       Object.assign(person.style, { position:'absolute', left:cx+'%', top:cy+'%', transform:'translate(-50%,-50%)', width:'26px', height:'26px', borderRadius:'50%', background:'#fff', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 1px 2px rgba(0,0,0,0.12)', cursor:'pointer', border:'1px solid rgba(0,0,0,0.06)'});
       // small icon (initials)
@@ -232,7 +233,11 @@
     const res = findPerson(q);
     if (res){
       const el = document.getElementById(res.table);
-      if (el) el.classList.add('highlight');
+      if (el) {
+        el.classList.add('highlight');
+        // bring into view
+        try{ el.scrollIntoView({behavior:'smooth', block:'center', inline:'center'}); }catch(e){}
+      }
       document.getElementById('seatingInfo').textContent = `Znaleziono przy stoliku ${res.table.replace('t','')}: ${res.names.join(', ')}`;
     } else {
       document.getElementById('seatingInfo').textContent = 'Nie znaleziono gościa o takim imieniu.';

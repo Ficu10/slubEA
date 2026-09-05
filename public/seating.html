@@ -20,6 +20,11 @@
     .hall-label{position:absolute;left:50%;transform:translateX(-50%);top:40px;color:var(--muted);font-weight:600}
     .seating-info{margin-top:10px;color:var(--muted)}
     .btn-outline{display:inline-block;padding:8px 12px;border-radius:8px;border:1px solid rgba(47,111,78,0.18);color:var(--green);text-decoration:none}
+    /* Table label font different from buttons */
+    .table .num, .table .names{font-family: Georgia, 'Times New Roman', serif;}
+    /* Allow people icons to render outside table boundary */
+    .table{overflow:visible}
+    .person{pointer-events:auto}
   </style>
 </head>
 <body>
@@ -46,7 +51,6 @@
     </section>
   </main>
 
-  <script src="/seating.js"></script>
   <script src="/api-config.js"></script>
   <script src="/seating.js"></script>
   <script src="/auth.js"></script>
