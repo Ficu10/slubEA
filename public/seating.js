@@ -153,11 +153,14 @@
     Object.assign(toolbar.style, { position:'absolute', zIndex:10000, background:'#fff', border:'1px solid #ddd', padding:'6px', borderRadius:'8px', display:'flex', gap:'6px' });
     const inc = createBtn('+', 'Powieksz', ()=> changeSize(index, 1.1));
     const dec = createBtn('-', 'Zmniejsz', ()=> changeSize(index, 0.9));
-    const dup = createBtn('⧉', 'Powiel', ()=> duplicateTable(index));
-    const del = createBtn('🗑', 'Usuń', ()=>{ if(confirm('Usunąć stolik?')){ deleteTable(index); } });
+    const addP = createBtn('＋ Os.', 'Dodaj osobę', ()=> addPersonToTable(index));
+    const rename = createBtn('✎N', 'Zmień nazwę stolika', ()=> renameTable(index));
     const shape = createBtn('🔄', 'Zmień kształt', ()=> toggleShape(index));
-    const edit = createBtn('✎', 'Edytuj osoby', ()=> editTable('t'+(index+1)));
-    toolbar.appendChild(inc); toolbar.appendChild(dec); toolbar.appendChild(shape); toolbar.appendChild(dup); toolbar.appendChild(edit); toolbar.appendChild(del);
+    const dup = createBtn('⧉', 'Powiel', ()=> duplicateTable(index));
+    const edit = createBtn('✎', 'Edytuj osoby (lista)', ()=> editTable('t'+(index+1)));
+    const del = createBtn('🗑', 'Usuń', ()=>{ if(confirm('Usunąć stolik?')){ deleteTable(index); } });
+    toolbar.appendChild(inc); toolbar.appendChild(dec); toolbar.appendChild(addP); toolbar.appendChild(rename);
+    toolbar.appendChild(shape); toolbar.appendChild(dup); toolbar.appendChild(edit); toolbar.appendChild(del);
     document.body.appendChild(toolbar);
     // position near element
     const r = el.getBoundingClientRect(); toolbar.style.left = (r.right + 10) + 'px'; toolbar.style.top = (r.top) + 'px';
@@ -176,6 +179,26 @@
     const oldKey = 't'+(index+1); const newKey = 't'+(positions.length);
     if (assignments[oldKey]) assignments[newKey] = assignments[oldKey].slice();
     saveToServer(); renderAll(); }
+
+  function addPersonToTable(index){
+    const key = 't'+(index+1);
+    if (!isAdmin()){ alert('Tylko admin może dodać osobę.'); return; }
+    const name = prompt('Wpisz imię i nazwisko nowej osoby:');
+    if (!name) return;
+    assignments[key] = assignments[key] || [];
+    assignments[key].push(name.trim());
+    saveToServer(); renderAll();
+  }
+
+  function renameTable(index){
+    if (!isAdmin()) { alert('Tylko admin może zmienić nazwę stolika.'); return; }
+    const p = positions[index] || {};
+    const label = prompt('Nowa nazwa stolika (etykieta):', p.label || ('Stolik ' + (index+1)));
+    if (label === null) return;
+    p.label = label.trim() || undefined;
+    positions[index] = p;
+    saveToServer(); renderAll();
+  }
 
   function deleteTable(index){ positions.splice(index,1);
     // shift assignments
