@@ -15,6 +15,7 @@
   let positions = defaultPositions.slice();
 
   let assignments = {};
+  let drawings = [];
 
   // Try load seating from server; fallback to localStorage
   const API_BASE = window.API_URL || '';
@@ -27,6 +28,7 @@
       const data = await res.json();
       if (data.positions && data.positions.length) positions = data.positions;
       if (data.assignments) assignments = data.assignments;
+      if (data.drawings) drawings = data.drawings;
     }catch(e){
       // fallback to localStorage if present
       try{const s = localStorage.getItem(seatingKey); if (s) assignments = JSON.parse(s);}catch(e){}
@@ -36,7 +38,7 @@
 
   async function saveToServer(){
     const token = localStorage.getItem('adminToken');
-    const body = { positions, assignments };
+    const body = { positions, assignments, drawings };
     if (!token) { // fallback to localStorage
       localStorage.setItem(seatingKey, JSON.stringify(assignments));
       localStorage.setItem('wesele_positions_v1', JSON.stringify(positions));
@@ -104,6 +106,16 @@
       addTable();
     });
     controls.appendChild(btn);
+    // drawing controls (admin only)
+    const drawBtn = document.createElement('button'); drawBtn.id='drawToggle'; drawBtn.textContent='Rysuj'; drawBtn.className='btn-outline'; drawBtn.style.marginLeft='6px';
+    const colorIn = document.createElement('input'); colorIn.type='color'; colorIn.id='drawColor'; colorIn.value='#2f6f4e'; colorIn.style.marginLeft='6px';
+    const clearBtnDraw = document.createElement('button'); clearBtnDraw.textContent='Wyczyść rysunek'; clearBtnDraw.className='btn-outline'; clearBtnDraw.style.marginLeft='6px';
+    drawBtn.addEventListener('click', ()=>{
+      if (!localStorage.getItem('adminToken')){ alert('Tylko admin może rysować.'); return; }
+      toggleDrawMode();
+    });
+    clearBtnDraw.addEventListener('click', ()=>{ if (!localStorage.getItem('adminToken')){ alert('Tylko admin może czyścić.'); return; } if (confirm('Wyczyścić rysunki?')){ drawings = []; drawAllStrokes(); saveToServer(); } });
+    controls.appendChild(drawBtn); controls.appendChild(colorIn); controls.appendChild(clearBtnDraw);
   })();
 
   function savePositions(newPositions){
@@ -172,10 +184,51 @@
       const initials = name.split(' ').map(s=>s[0]||'').slice(0,2).join('').toUpperCase() || 'G';
       person.textContent = initials;
       person.title = name;
+      // label
+      const label = document.createElement('div'); label.className = 'person-label'; label.textContent = name; label.style.display = 'none';
+      person.addEventListener('mouseenter', ()=> label.style.display = 'block');
+      person.addEventListener('mouseleave', ()=> label.style.display = 'none');
+      el.appendChild(person); el.appendChild(label);
       person.dataset.idx = i;
       person.addEventListener('click', (ev)=>{ ev.stopPropagation(); showPersonDetail(tableId, i); });
-      el.appendChild(person);
     }
+  }
+
+  // Drawing canvas overlay
+  let drawMode = false;
+  let canvas, ctx;
+  function ensureCanvas(){
+    if (canvas) return;
+    canvas = document.createElement('canvas'); canvas.id='seatingCanvas';
+    Object.assign(canvas.style, { position:'absolute', left:0, top:0, width:'100%', height:'100%', zIndex:998, pointerEvents:'none' });
+    hall.appendChild(canvas);
+    ctx = canvas.getContext('2d');
+    function resize(){ const r = hall.getBoundingClientRect(); canvas.width = Math.round(r.width); canvas.height = Math.round(r.height); canvas.style.left = '0'; canvas.style.top = '0'; drawAllStrokes(); }
+    window.addEventListener('resize', resize);
+    resize();
+  }
+
+  function toggleDrawMode(){ ensureCanvas(); drawMode = !drawMode; const btn = document.getElementById('drawToggle'); if (drawMode){ btn.textContent='Zakończ rysowanie'; canvas.style.pointerEvents='auto'; enableDrawing(); } else { btn.textContent='Rysuj'; canvas.style.pointerEvents='none'; disableDrawing(); }
+  }
+
+  let drawingStroke = null;
+  function enableDrawing(){
+    if (!canvas) ensureCanvas();
+    const colorInput = document.getElementById('drawColor');
+    function onDown(e){ e.preventDefault(); const rect = canvas.getBoundingClientRect(); drawingStroke = { color: colorInput.value||'#000', width: 3, points: [] }; const x = (e.clientX - rect.left); const y = (e.clientY - rect.top); drawingStroke.points.push([x,y]); }
+    function onMove(e){ if (!drawingStroke) return; const rect = canvas.getBoundingClientRect(); const x = (e.clientX - rect.left); const y = (e.clientY - rect.top); drawingStroke.points.push([x,y]); drawAllStrokes(true); }
+    function onUp(e){ if (!drawingStroke) return; drawings.push(drawingStroke); drawingStroke = null; saveToServer(); }
+    canvas.addEventListener('pointerdown', onDown); canvas.addEventListener('pointermove', onMove); canvas.addEventListener('pointerup', onUp); canvas._handlers = { onDown, onMove, onUp };
+  }
+
+  function disableDrawing(){ if (!canvas || !canvas._handlers) return; const h = canvas._handlers; canvas.removeEventListener('pointerdown', h.onDown); canvas.removeEventListener('pointermove', h.onMove); canvas.removeEventListener('pointerup', h.onUp); canvas._handlers = null; }
+
+  function drawAllStrokes(temp){
+    if (!canvas) return; ctx.clearRect(0,0,canvas.width,canvas.height);
+    // draw saved strokes
+    for(const s of drawings){ ctx.strokeStyle = s.color || '#000'; ctx.lineWidth = s.width||3; ctx.lineJoin='round'; ctx.lineCap='round'; ctx.beginPath(); const pts = s.points || []; for(let i=0;i<pts.length;i++){ const [x,y] = pts[i]; if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y); } ctx.stroke(); }
+    // draw current
+    if (temp && drawingStroke){ ctx.strokeStyle = drawingStroke.color||'#000'; ctx.lineWidth = drawingStroke.width||3; ctx.beginPath(); const pts = drawingStroke.points; for(let i=0;i<pts.length;i++){ const [x,y]=pts[i]; if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y); } ctx.stroke(); }
   }
 
   function showPersonDetail(tableId, idx){
