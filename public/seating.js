@@ -182,6 +182,12 @@
     const arr = assignments[tableId] || [];
     const name = arr[idx];
     if (!name) return;
+    // non-admins see read-only info
+    if (!localStorage.getItem('adminToken')){
+      alert(name + '\n\nPrzy ' + tableId + ' siedzą:\n' + arr.join('\n'));
+      return;
+    }
+    // admin may edit person
     const newName = prompt('Szczegóły osoby przy ' + tableId + '\nWpisz imię i nazwisko:', name);
     if (newName === null) return;
     if (newName.trim()) arr[idx] = newName.trim(); else arr.splice(idx,1);
@@ -202,9 +208,15 @@
   }
 
   function editTable(id){
-    // only admin may edit guest lists
-    if (!localStorage.getItem('adminToken')){ alert('Tylko zalogowany admin może przypisywać gości.'); return; }
-    const current = (assignments[id] || []).join(', ');
+    const currentArr = assignments[id] || [];
+    // If not admin, show a read-only list of assigned people
+    if (!localStorage.getItem('adminToken')){
+      const info = currentArr.length ? currentArr.join('\n') : 'Pusty stolik';
+      alert('Przy ' + id + ' siedzą:\n\n' + info);
+      return;
+    }
+    // admin may edit
+    const current = currentArr.join(', ');
     const input = prompt('Wpisz imiona gości dla ' + id + ' (oddziel przecinkami):', current);
     if (input === null) return;
     const arr = input.split(',').map(s=>s.trim()).filter(Boolean);
