@@ -137,6 +137,13 @@
   let toolbar = null;
   function selectTable(index, el){
     selectedIndex = index;
+    if (!isAdmin()){
+      // show read-only guest list for non-admins
+      const key = 't'+(index+1);
+      const arr = assignments[key] || [];
+      alert('Przy ' + key + ' siedzą:\n\n' + (arr.join('\n') || 'Pusty stolik'));
+      return;
+    }
     showToolbarFor(el, index);
   }
 
@@ -235,7 +242,20 @@
   function ensureAddButton(){ if (document.getElementById('addTableBtn')) return; const btn = document.createElement('button'); btn.id='addTableBtn'; btn.className='btn-outline'; btn.textContent='Dodaj stolik'; btn.addEventListener('click', ()=>{ if (!isAdmin()){ alert('Tylko admin może dodawać stoliki.'); return; } addTable(); }); controls.appendChild(btn); }
   function addTable(){ positions.push({ x:50, y:50, size:12, shape:'circle' }); saveToServer(); renderAll(); }
 
+  // Admin quick-login control (for convenience)
+  function ensureAdminControl(){ if (document.getElementById('adminToggle')) return; const a = document.createElement('button'); a.id='adminToggle'; a.className='btn-outline'; a.style.marginLeft='6px';
+    function update(){ if (isAdmin()){ a.textContent = 'Wyloguj admin'; a.title='Wyloguj'; } else { a.textContent = 'Zaloguj admin'; a.title='Zaloguj jako admin (emilka)'; } }
+    a.addEventListener('click', ()=>{
+      if (isAdmin()){ localStorage.removeItem('adminToken'); update(); renderAll(); return; }
+      const user = prompt('Login:', 'emilka'); if (user === null) return; const pass = prompt('Hasło:', 'adas'); if (pass === null) return;
+      if (user === 'emilka' && pass === 'adas'){ localStorage.setItem('adminToken', 'local-test-token'); update(); ensureAddButton(); alert('Zalogowano jako admin'); } else { alert('Nieprawidłowe dane'); }
+    });
+    controls.appendChild(a); update();
+  }
+
   // init
   (async function init(){ await loadFromServer(); renderAll(); ensureAddButton(); ensureCanvas(); })();
+  // admin control
+  (function initAdmin(){ ensureAdminControl(); })();
 
 })();
