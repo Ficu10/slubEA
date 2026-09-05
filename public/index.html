@@ -262,7 +262,7 @@
         loadGallery();
         // also open preview for the first uploaded
         const first = uploaded[0];
-        if (first) showPreview(first);
+        if (first) showPreviewByKey(first.key || first.key === 0 ? first.key : first);
       } else {
         status.textContent = 'Brak przesłanych plików.';
       }
