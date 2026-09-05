@@ -43,7 +43,11 @@
     <section class="info">
       <h2>Rozmieszczenie stołów</h2>
       <div class="seating-controls">
-        <input id="searchInput" placeholder="Wyszukaj osobę..." style="padding:8px;border-radius:8px;border:1px solid #ddd;flex:1">
+        <div style="position:relative;flex:1">
+          <input id="searchInput" placeholder="Wyszukaj osobę..." style="padding:8px;border-radius:8px;border:1px solid #ddd;width:100%" autocomplete="off">
+          <ul id="searchSuggestions" style="position:absolute;left:0;right:0;top:40px;background:#fff;border:1px solid #eee;list-style:none;margin:0;padding:6px;max-height:200px;overflow:auto;display:none;z-index:1000"></ul>
+        </div>
+        <button id="searchBtn" class="btn-outline" title="Szukaj">🔍</button>
         <button id="clearBtn" class="btn-outline">Wyczyść wyszukiwanie</button>
         <a href="/" class="btn-outline">Powrót</a>
       </div>

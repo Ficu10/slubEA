@@ -1,379 +1,241 @@
-(() => {
+(function(){
+  // Clean, self-contained seating UI
   const hall = document.getElementById('hall');
   const searchInput = document.getElementById('searchInput');
+  const searchSuggestions = document.getElementById('searchSuggestions');
+  const searchBtn = document.getElementById('searchBtn');
   const clearBtn = document.getElementById('clearBtn');
+  const controls = document.querySelector('.seating-controls');
+
   const seatingKey = 'wesele_seating_v1';
+  const API_BASE = window.API_URL || '';
 
-  // Predefined positions for 10 round tables + 1 rectangular table for the couple
-  const defaultPositions = [
-    {x:20,y:30,size:14},{x:50,y:30,size:14},{x:80,y:30,size:14},
-    {x:20,y:55,size:14},{x:50,y:55,size:14},{x:80,y:55,size:14},
-    {x:20,y:80,size:14},{x:50,y:80,size:14},{x:80,y:80,size:14},{x:35,y:15,size:14},
-    {x:50,y:12, rect:true, w:28, h:16}
-  ];
-
-  let positions = defaultPositions.slice();
-
+  let positions = [];
   let assignments = {};
   let drawings = [];
 
-  // Try load seating from server; fallback to localStorage
-  const API_BASE = window.API_URL || '';
+  // default template (used if server has none)
+  const defaultPositions = [
+    { x:20,y:30,size:14,shape:'circle' },{ x:50,y:30,size:14,shape:'circle' },{ x:80,y:30,size:14,shape:'circle' },
+    { x:20,y:55,size:14,shape:'circle' },{ x:50,y:55,size:14,shape:'circle' },{ x:80,y:55,size:14,shape:'circle' },
+    { x:20,y:80,size:14,shape:'circle' },{ x:50,y:80,size:14,shape:'circle' },{ x:80,y:80,size:14,shape:'circle' },
+  ];
+
+  // UTIL
+  function isAdmin(){ return !!localStorage.getItem('adminToken'); }
+  function saveLocal(){ localStorage.setItem(seatingKey, JSON.stringify({ positions, assignments, drawings })); }
+
   async function loadFromServer(){
     try{
       const res = await fetch(API_BASE + '/api/seating');
       if (!res.ok) throw new Error('no-server');
-      const ct = res.headers.get('content-type') || '';
-      if (!ct.includes('application/json')) throw new Error('no-json');
-      const data = await res.json();
-      if (data.positions && data.positions.length) positions = data.positions;
-      if (data.assignments) assignments = data.assignments;
-      if (data.drawings) drawings = data.drawings;
+      const json = await res.json();
+      positions = json.positions && json.positions.length ? json.positions : defaultPositions.slice();
+      assignments = json.assignments || {};
+      drawings = json.drawings || [];
+      return;
     }catch(e){
-      // fallback to localStorage if present
-      try{const s = localStorage.getItem(seatingKey); if (s) assignments = JSON.parse(s);}catch(e){}
-      try{const p = localStorage.getItem('wesele_positions_v1'); if (p) positions = JSON.parse(p);}catch(e){}
+      // fallback to localStorage
+      try{ const s = localStorage.getItem(seatingKey); if (s){ const j = JSON.parse(s); positions = j.positions || defaultPositions.slice(); assignments = j.assignments || {}; drawings = j.drawings || []; return; } }catch(_){}
+      positions = defaultPositions.slice(); assignments = {}; drawings = [];
     }
   }
 
   async function saveToServer(){
     const token = localStorage.getItem('adminToken');
     const body = { positions, assignments, drawings };
-    if (!token) { // fallback to localStorage
-      localStorage.setItem(seatingKey, JSON.stringify(assignments));
-      localStorage.setItem('wesele_positions_v1', JSON.stringify(positions));
-      return;
-    }
+    if (!token){ saveLocal(); return; }
     try{
-      const res = await fetch(API_BASE + '/api/seating', { method: 'POST', headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+token }, body: JSON.stringify(body) });
-      if (!res.ok) throw new Error('save-failed');
-    }catch(e){
-      // fallback to local
-      localStorage.setItem(seatingKey, JSON.stringify(assignments));
-      localStorage.setItem('wesele_positions_v1', JSON.stringify(positions));
-    }
+      await fetch(API_BASE + '/api/seating', { method:'POST', headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+token }, body: JSON.stringify(body) });
+    }catch(e){ saveLocal(); }
   }
 
-  function createTables(){
-    positions.forEach((p, i) => {
-      const id = 't' + (i+1);
-      const el = document.createElement('div');
-      el.id = id;
-      el.style.left = p.x + '%'; el.style.top = p.y + '%';
-      // size
-      if (p.rect){
-        el.className = 'table rect';
-        el.style.width = (p.w || 28) + '%'; el.style.height = (p.h || 16) + '%';
-        const label = p.label || 'Para';
-        el.innerHTML = `<div class="num">${label}</div><div class="names">Para Młoda</div>`;
-      } else {
-        el.className = 'table';
-        const s = (p.size || 14);
-        el.style.width = s + '%'; el.style.height = s + '%';
-        const label = p.label || (i+1);
-        el.innerHTML = `<div class="num">${label}</div><div class="names"></div>`;
-      }
-      if (p.color){ el.style.borderColor = p.color; const numNode = el.querySelector && el.querySelector('.num'); if (numNode) numNode.style.background = p.color; }
-      // admin controls (resize / delete / edit appearance)
-      const adminToken = localStorage.getItem('adminToken');
-      if (adminToken){
-        const ctrl = document.createElement('div'); ctrl.style.position='absolute'; ctrl.style.bottom='6px'; ctrl.style.right='6px';
-        const plus = document.createElement('button'); plus.textContent='+'; plus.style.padding='4px'; plus.style.marginRight='4px';
-        const minus = document.createElement('button'); minus.textContent='-'; minus.style.padding='4px';
-        const del = document.createElement('button'); del.textContent='×'; del.style.padding='4px'; del.style.marginLeft='6px';
-        const edit = document.createElement('button'); edit.textContent='✎'; edit.style.padding='4px'; edit.style.marginLeft='6px';
-        plus.addEventListener('click', (e)=>{ e.stopPropagation(); resizeTable(id, 1.1); });
-        minus.addEventListener('click', (e)=>{ e.stopPropagation(); resizeTable(id, 0.9); });
-        del.addEventListener('click', (e)=>{ e.stopPropagation(); if (confirm('Usunąć stolik ' + id + '?')) deleteTable(id); });
-        edit.addEventListener('click', (e)=>{ e.stopPropagation(); editAppearance(id); });
-        ctrl.appendChild(plus); ctrl.appendChild(minus); ctrl.appendChild(edit); ctrl.appendChild(del); el.appendChild(ctrl);
-      }
-      el.addEventListener('click', (e) => { if (e.target && e.target.classList && e.target.classList.contains('person')) return; editTable(id); });
-      hall.appendChild(el);
-    });
-    attachDragHandlers();
-    renderAll();
-  }
-
-  // Add admin control button for adding a table
-  (function addAdminControls(){
-    const controls = document.querySelector('.seating-controls');
-    if (!controls) return;
-    if (document.getElementById('addTableBtn')) return; // already added
-    const btn = document.createElement('button'); btn.id = 'addTableBtn'; btn.textContent = 'Dodaj stolik'; btn.className = 'btn-outline'; btn.style.marginLeft='6px';
-    btn.addEventListener('click', ()=>{
-      if (!localStorage.getItem('adminToken')){ alert('Tylko admin może dodawać stoliki.'); return; }
-      addTable();
-    });
-    controls.appendChild(btn);
-    // drawing controls (admin only)
-    const drawBtn = document.createElement('button'); drawBtn.id='drawToggle'; drawBtn.textContent='Rysuj'; drawBtn.className='btn-outline'; drawBtn.style.marginLeft='6px';
-    const colorIn = document.createElement('input'); colorIn.type='color'; colorIn.id='drawColor'; colorIn.value='#2f6f4e'; colorIn.style.marginLeft='6px';
-    const clearBtnDraw = document.createElement('button'); clearBtnDraw.textContent='Wyczyść rysunek'; clearBtnDraw.className='btn-outline'; clearBtnDraw.style.marginLeft='6px';
-    drawBtn.addEventListener('click', ()=>{
-      if (!localStorage.getItem('adminToken')){ alert('Tylko admin może rysować.'); return; }
-      toggleDrawMode();
-    });
-    clearBtnDraw.addEventListener('click', ()=>{ if (!localStorage.getItem('adminToken')){ alert('Tylko admin może czyścić.'); return; } if (confirm('Wyczyścić rysunki?')){ drawings = []; drawAllStrokes(); saveToServer(); } });
-    controls.appendChild(drawBtn); controls.appendChild(colorIn); controls.appendChild(clearBtnDraw);
-  })();
-
-  function savePositions(newPositions){
-    positions = newPositions;
-    saveToServer();
-  }
-
-  function attachDragHandlers(){
-    const isAdmin = !!localStorage.getItem('adminToken');
-    document.querySelectorAll('.table').forEach(el => {
-      el.onpointerdown = (ev) => {
-        if (!localStorage.getItem('adminToken')) return; // only admin may drag
-        ev.preventDefault();
-        const rect = hall.getBoundingClientRect();
-        const id = el.id;
-        const onMove = (e) => {
-          const clientX = e.clientX || (e.touches && e.touches[0].clientX);
-          const clientY = e.clientY || (e.touches && e.touches[0].clientY);
-          let nx = ((clientX - rect.left) / rect.width) * 100;
-          let ny = ((clientY - rect.top) / rect.height) * 100;
-          nx = Math.max(2, Math.min(98, nx)); ny = Math.max(2, Math.min(98, ny));
-          el.style.left = nx + '%'; el.style.top = ny + '%';
-          // update positions array
-          const idx = parseInt(id.replace('t',''),10) - 1;
-          positions[idx].x = nx; positions[idx].y = ny;
-        };
-        const onUp = () => { document.removeEventListener('pointermove', onMove); document.removeEventListener('pointerup', onUp); savePositions(positions); };
-        document.addEventListener('pointermove', onMove);
-        document.addEventListener('pointerup', onUp);
-      };
-    });
-  }
+  // Rendering
+  function clearHall(){ hall.innerHTML = '<div class="hall-label">Sala weselna</div>'; }
 
   function renderAll(){
-    positions.forEach((_, i) => renderTable(i+1));
+    clearHall();
+    positions.forEach((p, i) => renderTable(i, p));
+    drawAllStrokes();
   }
 
-  function renderTable(n){
-    const el = document.getElementById('t'+n);
-    const names = (assignments['t'+n] || []).slice(0,6);
-    const namesDiv = el.querySelector('.names');
+  function renderTable(index, p){
+    const id = 't' + (index+1);
+    const el = document.createElement('div');
+    el.className = 'table';
+    el.dataset.index = index;
+    el.id = id;
+    // size: use percentage width/height for responsiveness
+    if (p.shape === 'rect'){
+      el.classList.add('rect');
+      el.style.width = (p.w||28) + '%';
+      el.style.height = (p.h||16) + '%';
+      el.style.borderRadius = p.radius?'12px':'12px';
+    } else {
+      el.style.width = (p.size||14) + '%';
+      el.style.height = (p.size||14) + '%';
+      el.style.borderRadius = '50%';
+    }
+    el.style.left = p.x + '%'; el.style.top = p.y + '%';
+    el.style.position = 'absolute';
+    el.style.transform = 'translate(-50%,-50%)';
+    el.style.display = 'flex'; el.style.alignItems = 'center'; el.style.justifyContent = 'center';
+    el.style.boxSizing = 'border-box';
+    el.style.border = '3px solid var(--green)';
+    // label
+    const lbl = document.createElement('div'); lbl.className = 'num'; lbl.style.pointerEvents='none'; lbl.textContent = p.label || (index+1);
+    const namesDiv = document.createElement('div'); namesDiv.className = 'names'; namesDiv.style.pointerEvents='none';
+    const names = (assignments['t'+(index+1)] || []).slice(0,6);
     namesDiv.textContent = names.join('\n') || 'Pusty stolik';
-    el.classList.remove('highlight');
-    renderPeopleForTable('t'+n);
+    el.appendChild(lbl); el.appendChild(namesDiv);
+
+    // person icons
+    renderPeople(el, 't'+(index+1));
+
+    // events
+    el.addEventListener('click', (e)=>{ if (e.defaultPrevented) return; selectTable(index, el); });
+
+    // drag
+    makeDraggable(el, index);
+
+    hall.appendChild(el);
   }
 
-  function renderPeopleForTable(tableId){
-    const el = document.getElementById(tableId);
-    if (!el) return;
-    // remove existing person nodes
-    Array.from(el.querySelectorAll('.person')).forEach(p=>p.remove());
-    const ppl = assignments[tableId] || [];
-    const count = ppl.length;
-    if (count === 0) return;
-    // render people outside table edge (around rim)
-    const angleStep = (Math.PI*2)/count;
-    const distancePercent = 80; // percent from center (50% is center)
+  function renderPeople(tableEl, tableId){
+    // remove existing persons
+    Array.from(tableEl.querySelectorAll('.person')).forEach(n=>n.remove());
+    const arr = assignments[tableId] || [];
+    if (!arr.length) return;
+    const count = arr.length;
+    const distance = 60; // percent from center
     for(let i=0;i<count;i++){
-      const angle = (i * angleStep) - Math.PI/2; // start at top
-      const cx = 50 + Math.cos(angle) * distancePercent;
-      const cy = 50 + Math.sin(angle) * distancePercent;
+      const angle = (i / count) * Math.PI * 2 - Math.PI/2;
+      const cx = 50 + Math.cos(angle) * distance;
+      const cy = 50 + Math.sin(angle) * distance;
       const person = document.createElement('div'); person.className = 'person';
       Object.assign(person.style, { position:'absolute', left:cx+'%', top:cy+'%', transform:'translate(-50%,-50%)', width:'26px', height:'26px', borderRadius:'50%', background:'#fff', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 1px 2px rgba(0,0,0,0.12)', cursor:'pointer', border:'1px solid rgba(0,0,0,0.06)'});
-      // small icon (initials)
-      const name = ppl[i] || '';
+      const name = arr[i] || '';
       const initials = name.split(' ').map(s=>s[0]||'').slice(0,2).join('').toUpperCase() || 'G';
-      person.textContent = initials;
-      person.title = name;
-      // label
-      const label = document.createElement('div'); label.className = 'person-label'; label.textContent = name; label.style.display = 'none';
+      person.textContent = initials; person.title = name; person.dataset.idx = i; person.dataset.table = tableId;
+      const label = document.createElement('div'); label.className = 'person-label'; label.textContent = name; label.style.display='none';
       person.addEventListener('mouseenter', ()=> label.style.display = 'block');
       person.addEventListener('mouseleave', ()=> label.style.display = 'none');
-      el.appendChild(person); el.appendChild(label);
-      person.dataset.idx = i;
-      person.addEventListener('click', (ev)=>{ ev.stopPropagation(); showPersonDetail(tableId, i); });
+      person.addEventListener('click', (ev)=>{ ev.stopPropagation(); onPersonClick(tableId, i); });
+      tableEl.appendChild(person); tableEl.appendChild(label);
     }
   }
 
-  // Drawing canvas overlay
-  let drawMode = false;
-  let canvas, ctx;
-  function ensureCanvas(){
-    if (canvas) return;
-    canvas = document.createElement('canvas'); canvas.id='seatingCanvas';
-    Object.assign(canvas.style, { position:'absolute', left:0, top:0, width:'100%', height:'100%', zIndex:998, pointerEvents:'none' });
-    hall.appendChild(canvas);
-    ctx = canvas.getContext('2d');
-    function resize(){ const r = hall.getBoundingClientRect(); canvas.width = Math.round(r.width); canvas.height = Math.round(r.height); canvas.style.left = '0'; canvas.style.top = '0'; drawAllStrokes(); }
-    window.addEventListener('resize', resize);
-    resize();
+  function onPersonClick(tableId, idx){
+    const list = assignments[tableId] || [];
+    const name = list[idx]; if (!name) return;
+    if (!isAdmin()){ alert(name + '\n\nPrzy ' + tableId + ' siedzą:\n' + (list.join('\n')||'Pusty stolik')); return; }
+    const newName = prompt('Edycja osoby', name); if (newName === null) return; if (newName.trim()) list[idx] = newName.trim(); else list.splice(idx,1); assignments[tableId] = list.length? list : undefined; saveToServer(); renderAll();
   }
 
-  function toggleDrawMode(){ ensureCanvas(); drawMode = !drawMode; const btn = document.getElementById('drawToggle'); if (drawMode){ btn.textContent='Zakończ rysowanie'; canvas.style.pointerEvents='auto'; enableDrawing(); } else { btn.textContent='Rysuj'; canvas.style.pointerEvents='none'; disableDrawing(); }
+  // selection toolbar
+  let selectedIndex = null;
+  let toolbar = null;
+  function selectTable(index, el){
+    selectedIndex = index;
+    showToolbarFor(el, index);
   }
 
-  let drawingStroke = null;
-  function enableDrawing(){
-    if (!canvas) ensureCanvas();
-    const colorInput = document.getElementById('drawColor');
-    function onDown(e){ e.preventDefault(); const rect = canvas.getBoundingClientRect(); drawingStroke = { color: colorInput.value||'#000', width: 3, points: [] }; const x = (e.clientX - rect.left); const y = (e.clientY - rect.top); drawingStroke.points.push([x,y]); }
-    function onMove(e){ if (!drawingStroke) return; const rect = canvas.getBoundingClientRect(); const x = (e.clientX - rect.left); const y = (e.clientY - rect.top); drawingStroke.points.push([x,y]); drawAllStrokes(true); }
-    function onUp(e){ if (!drawingStroke) return; drawings.push(drawingStroke); drawingStroke = null; saveToServer(); }
-    canvas.addEventListener('pointerdown', onDown); canvas.addEventListener('pointermove', onMove); canvas.addEventListener('pointerup', onUp); canvas._handlers = { onDown, onMove, onUp };
+  function showToolbarFor(el, index){
+    removeToolbar();
+    toolbar = document.createElement('div'); toolbar.id = 'tableToolbar';
+    Object.assign(toolbar.style, { position:'absolute', zIndex:10000, background:'#fff', border:'1px solid #ddd', padding:'6px', borderRadius:'8px', display:'flex', gap:'6px' });
+    const inc = createBtn('+', 'Powieksz', ()=> changeSize(index, 1.1));
+    const dec = createBtn('-', 'Zmniejsz', ()=> changeSize(index, 0.9));
+    const dup = createBtn('⧉', 'Powiel', ()=> duplicateTable(index));
+    const del = createBtn('🗑', 'Usuń', ()=>{ if(confirm('Usunąć stolik?')){ deleteTable(index); } });
+    const shape = createBtn('🔄', 'Zmień kształt', ()=> toggleShape(index));
+    const edit = createBtn('✎', 'Edytuj osoby', ()=> editTable('t'+(index+1)));
+    toolbar.appendChild(inc); toolbar.appendChild(dec); toolbar.appendChild(shape); toolbar.appendChild(dup); toolbar.appendChild(edit); toolbar.appendChild(del);
+    document.body.appendChild(toolbar);
+    // position near element
+    const r = el.getBoundingClientRect(); toolbar.style.left = (r.right + 10) + 'px'; toolbar.style.top = (r.top) + 'px';
   }
 
-  function disableDrawing(){ if (!canvas || !canvas._handlers) return; const h = canvas._handlers; canvas.removeEventListener('pointerdown', h.onDown); canvas.removeEventListener('pointermove', h.onMove); canvas.removeEventListener('pointerup', h.onUp); canvas._handlers = null; }
+  function createBtn(text, title, onClick){ const b = document.createElement('button'); b.textContent = text; b.title = title; b.className='btn-outline'; b.addEventListener('click',(e)=>{ e.stopPropagation(); onClick(); removeToolbar(); }); return b; }
+  function removeToolbar(){ if (toolbar && toolbar.parentNode) toolbar.parentNode.removeChild(toolbar); toolbar = null; selectedIndex = null; }
+  document.addEventListener('click', ()=> removeToolbar());
 
-  function drawAllStrokes(temp){
-    if (!canvas) return; ctx.clearRect(0,0,canvas.width,canvas.height);
-    // draw saved strokes
-    for(const s of drawings){ ctx.strokeStyle = s.color || '#000'; ctx.lineWidth = s.width||3; ctx.lineJoin='round'; ctx.lineCap='round'; ctx.beginPath(); const pts = s.points || []; for(let i=0;i<pts.length;i++){ const [x,y] = pts[i]; if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y); } ctx.stroke(); }
-    // draw current
-    if (temp && drawingStroke){ ctx.strokeStyle = drawingStroke.color||'#000'; ctx.lineWidth = drawingStroke.width||3; ctx.beginPath(); const pts = drawingStroke.points; for(let i=0;i<pts.length;i++){ const [x,y]=pts[i]; if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y); } ctx.stroke(); }
-  }
+  function changeSize(index, factor){ const p = positions[index]; if (!p) return; if (p.shape==='rect'){ p.w = Math.max(6, Math.min(80, (p.w||28)*factor)); p.h = Math.max(6, Math.min(60, (p.h||16)*factor)); } else { p.size = Math.max(6, Math.min(50, (p.size||14)*factor)); } saveToServer(); renderAll(); }
+  function toggleShape(index){ const p = positions[index]; if (!p) return; p.shape = (p.shape==='rect')? 'circle':'rect'; // keep existing size fields
+    saveToServer(); renderAll(); }
 
-  function showPersonDetail(tableId, idx){
-    const arr = assignments[tableId] || [];
-    const name = arr[idx];
-    if (!name) return;
-    // non-admins see read-only info
-    if (!localStorage.getItem('adminToken')){
-      alert(name + '\n\nPrzy ' + tableId + ' siedzą:\n' + arr.join('\n'));
-      return;
-    }
-    // admin may edit person
-    const newName = prompt('Szczegóły osoby przy ' + tableId + '\nWpisz imię i nazwisko:', name);
-    if (newName === null) return;
-    if (newName.trim()) arr[idx] = newName.trim(); else arr.splice(idx,1);
-    assignments[tableId] = arr.length? arr : undefined;
-    renderTable(parseInt(tableId.replace('t',''),10));
-    saveToServer();
-  }
+  function duplicateTable(index){ const p = positions[index]; const clone = JSON.parse(JSON.stringify(p)); clone.x = Math.min(90, (p.x||50)+6); clone.y = Math.min(90, (p.y||50)+6); positions.push(clone);
+    // copy assignments
+    const oldKey = 't'+(index+1); const newKey = 't'+(positions.length);
+    if (assignments[oldKey]) assignments[newKey] = assignments[oldKey].slice();
+    saveToServer(); renderAll(); }
 
-  function addTable(){
-    // add at center with default size
-    const p = { x:50, y:50, size:12 };
-    positions.push(p);
-    // ensure assignments array stays consistent
-    // rebuild UI
-    hall.innerHTML = '<div class="hall-label">Sala weselna</div>';
-    createTables();
-    saveToServer();
-  }
+  function deleteTable(index){ positions.splice(index,1);
+    // shift assignments
+    const newAssign = {};
+    Object.keys(assignments).forEach(k=>{ const n = parseInt(k.replace('t',''),10); if (n <= index+1) newAssign[k] = assignments[k]; else newAssign['t'+(n-1)] = assignments[k]; });
+    assignments = newAssign; saveToServer(); renderAll(); }
 
-  function editTable(id){
-    const currentArr = assignments[id] || [];
-    // If not admin, show a read-only list of assigned people
-    if (!localStorage.getItem('adminToken')){
-      const info = currentArr.length ? currentArr.join('\n') : 'Pusty stolik';
-      alert('Przy ' + id + ' siedzą:\n\n' + info);
-      return;
-    }
-    // admin may edit
-    const current = currentArr.join(', ');
-    const input = prompt('Wpisz imiona gości dla ' + id + ' (oddziel przecinkami):', current);
-    if (input === null) return;
-    const arr = input.split(',').map(s=>s.trim()).filter(Boolean);
-    if (arr.length) assignments[id] = arr;
-    else delete assignments[id];
-    renderAll();
-    saveToServer();
-  }
+  function editTable(tableId){ const arr = assignments[tableId] || []; if (!isAdmin()){ alert('Przy ' + tableId + ' siedzą:\n' + (arr.join('\n')||'Pusty stolik')); return; }
+    const val = prompt('Wpisz imiona (oddziel przecinkami):', arr.join(', ')); if (val === null) return; const newArr = val.split(',').map(s=>s.trim()).filter(Boolean); if (newArr.length) assignments[tableId] = newArr; else delete assignments[tableId]; saveToServer(); renderAll(); }
 
-  function findPerson(name){
-    const key = name.trim().toLowerCase();
-    if (!key) return null;
-    for(const t in assignments){
-      for(const person of assignments[t]){
-        if (person && person.toLowerCase().includes(key)) return {table:t,names:assignments[t]};
-      }
-    }
-    return null;
-  }
-
-  searchInput.addEventListener('input', ()=>{
-    const q = searchInput.value.trim();
-    // clear previous highlights
-    document.querySelectorAll('.table').forEach(el=>el.classList.remove('highlight'));
-    if (!q) return;
-    const res = findPerson(q);
-    if (res){
-      const el = document.getElementById(res.table);
-      if (el) {
-        el.classList.add('highlight');
-        // bring into view
-        try{ el.scrollIntoView({behavior:'smooth', block:'center', inline:'center'}); }catch(e){}
-      }
-      document.getElementById('seatingInfo').textContent = `Znaleziono przy stoliku ${res.table.replace('t','')}: ${res.names.join(', ')}`;
-    } else {
-      document.getElementById('seatingInfo').textContent = 'Nie znaleziono gościa o takim imieniu.';
-    }
-  });
-
-  clearBtn.addEventListener('click', ()=>{
-    searchInput.value = ''; document.getElementById('seatingInfo').textContent = 'Kliknij stolik, aby przypisać listę gości (oddziel przecinkami). Dane zapisywane lokalnie w przeglądarce.';
-    document.querySelectorAll('.table').forEach(el=>el.classList.remove('highlight'));
-  });
-  function resizeTable(id, factor){
-    const idx = parseInt(id.replace('t',''),10) - 1;
-    const p = positions[idx];
-    if (!p) return;
-    if (p.rect){ p.w = Math.max(6, Math.min(60, (p.w||28) * factor)); p.h = Math.max(6, Math.min(40, (p.h||16) * factor)); }
-    else { p.size = Math.max(6, Math.min(40, (p.size||14) * factor)); }
-    // apply style
-    const el = document.getElementById(id);
-    if (p.rect){ el.style.width = p.w + '%'; el.style.height = p.h + '%'; }
-    else { el.style.width = p.size + '%'; el.style.height = p.size + '%'; }
-    saveToServer();
-  }
-
-  function deleteTable(id){
-    const idx = parseInt(id.replace('t',''),10) - 1;
-    if (isNaN(idx)) return;
-    // remove position and assignment
-    positions.splice(idx,1);
-    // rebuild assignments: shift any table > idx down by 1
-    const newAssignments = {};
-    Object.keys(assignments).forEach(k=>{
-      const n = parseInt(k.replace('t',''),10);
-      if (n <= idx+1) {
-        // keep as-is if before removed
-        if (assignments[k]) newAssignments[k] = assignments[k];
-      } else {
-        // shift down
-        const newKey = 't' + (n-1);
-        newAssignments[newKey] = assignments[k];
-      }
+  // Dragging
+  function makeDraggable(el, index){
+    let moving = false; let start = null;
+    el.addEventListener('pointerdown', (ev)=>{
+      if (!isAdmin()) return; ev.preventDefault(); moving = true; start = { x: ev.clientX, y: ev.clientY }; document.body.style.userSelect='none';
+      const onMove = (e)=>{ if (!moving) return; const rect = hall.getBoundingClientRect(); const dx = e.clientX - start.x; const dy = e.clientY - start.y; // compute new relative position using element center
+        const centerX = ((e.clientX - rect.left) / rect.width) * 100; const centerY = ((e.clientY - rect.top) / rect.height) * 100; positions[index].x = Math.max(2, Math.min(98, centerX)); positions[index].y = Math.max(2, Math.min(98, centerY)); renderAll(); };
+      const onUp = ()=>{ moving=false; document.body.style.userSelect='auto'; saveToServer(); document.removeEventListener('pointermove',onMove); document.removeEventListener('pointerup',onUp); };
+      document.addEventListener('pointermove', onMove); document.addEventListener('pointerup', onUp);
     });
-    assignments = newAssignments;
-    // persist
-    saveToServer();
-    // rebuild UI
-    hall.innerHTML = '<div class="hall-label">Sala weselna</div>';
-    createTables();
   }
 
-  function editAppearance(id){
-    const idx = parseInt(id.replace('t',''),10) - 1;
-    if (isNaN(idx)) return;
-    const p = positions[idx] || {};
-    const label = prompt('Etykieta stolika (np. Numer lub Para):', p.label || (p.rect? 'Para': 'Stolik ' + (idx+1)));
-    const color = prompt('Kolor obramowania (np. #2f6f4e):', p.color || '');
-    if (label === null && color === null) return;
-    if (label !== null) p.label = label;
-    if (color !== null) p.color = (color||'').trim() || undefined;
-    positions[idx] = p;
-    // apply immediately
-    const el = document.getElementById(id);
-    if (el){
-      if (p.label){ const num = el.querySelector('.num'); if (num) num.textContent = p.label; }
-      if (p.color){ el.style.borderColor = p.color; const num = el.querySelector('.num'); if (num) num.style.background = p.color; }
+  // SEARCH / SUGGESTIONS
+  function buildIndex(){
+    const names = [];
+    Object.keys(assignments).forEach(k=>{ (assignments[k]||[]).forEach(name=>{ if (!name) return; names.push({ name, table:k }); }); });
+    return names;
+  }
+
+  let debounceTimer = null;
+  searchInput.addEventListener('input', (e)=>{
+    const q = (searchInput.value||'').trim().toLowerCase(); if (!q){ searchSuggestions.style.display='none'; return; }
+    clearTimeout(debounceTimer); debounceTimer = setTimeout(()=>{
+      const idx = buildIndex(); const matches = idx.filter(i=> i.name.toLowerCase().includes(q)); renderSuggestions(matches.slice(0,30));
+    }, 120);
+  });
+
+  function renderSuggestions(list){ searchSuggestions.innerHTML=''; if (!list.length){ searchSuggestions.style.display='none'; return; } list.forEach(item=>{
+    const li = document.createElement('li'); li.style.padding='6px'; li.style.cursor='pointer'; li.textContent = item.name + ' — ' + item.table.replace('t',''); li.addEventListener('click', ()=>{ searchInput.value = item.name; searchSuggestions.style.display='none'; highlightPerson(item.name); }); searchSuggestions.appendChild(li);
+  }); searchSuggestions.style.display='block'; }
+
+  searchBtn.addEventListener('click', ()=>{ const q = (searchInput.value||'').trim(); if (!q) return; highlightPerson(q); });
+  clearBtn.addEventListener('click', ()=>{ searchInput.value=''; searchSuggestions.style.display='none'; Array.from(document.querySelectorAll('.table')).forEach(t=>t.classList.remove('highlight')); document.getElementById('seatingInfo').textContent = 'Kliknij stolik, aby przypisać listę gości (oddziel przecinkami). Dane zapisywane lokalnie w przeglądarce.'; });
+
+  function highlightPerson(name){ const all = buildIndex(); const found = all.find(i=> i.name.toLowerCase() === name.toLowerCase() || i.name.toLowerCase().includes(name.toLowerCase())); if (!found){ alert('Nie znaleziono osoby'); return; }
+    // find table element
+    const tname = found.table; const num = parseInt(tname.replace('t',''),10); const el = document.getElementById(tname) || document.getElementById('t'+num);
+    if (el){ // highlight
+      Array.from(document.querySelectorAll('.table')).forEach(t=>t.classList.remove('highlight'));
+      el.classList.add('highlight'); try{ el.scrollIntoView({behavior:'smooth',block:'center',inline:'center'}); }catch(e){}
+      document.getElementById('seatingInfo').textContent = `Znaleziono ${found.name} przy stoliku ${num}`;
     }
-    saveToServer();
   }
 
-  // initialize (load server data first)
-  (async ()=>{
-    await loadFromServer();
-    createTables();
-  })();
+  // DRAWINGS (simple persistence but optional)
+  let canvas, ctx, drawing = null;
+  function ensureCanvas(){ if (canvas) return;
+    canvas = document.createElement('canvas'); canvas.id='seatingCanvas'; Object.assign(canvas.style,{ position:'absolute', left:0, top:0, width:'100%', height:'100%', zIndex:500, pointerEvents:'none' }); hall.appendChild(canvas); ctx = canvas.getContext('2d'); resizeCanvas(); window.addEventListener('resize', resizeCanvas);
+  }
+  function resizeCanvas(){ if (!canvas) return; const r = hall.getBoundingClientRect(); canvas.width = Math.round(r.width); canvas.height = Math.round(r.height); drawAllStrokes(); }
+  function drawAllStrokes(){ if (!canvas) return; ctx.clearRect(0,0,canvas.width,canvas.height); for(const s of drawings){ ctx.strokeStyle = s.color||'#000'; ctx.lineWidth = s.width||3; ctx.beginPath(); for(let i=0;i<s.points.length;i++){ const [x,y] = s.points[i]; if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y); } ctx.stroke(); } }
+
+  // ADMIN: add table button
+  function ensureAddButton(){ if (document.getElementById('addTableBtn')) return; const btn = document.createElement('button'); btn.id='addTableBtn'; btn.className='btn-outline'; btn.textContent='Dodaj stolik'; btn.addEventListener('click', ()=>{ if (!isAdmin()){ alert('Tylko admin może dodawać stoliki.'); return; } addTable(); }); controls.appendChild(btn); }
+  function addTable(){ positions.push({ x:50, y:50, size:12, shape:'circle' }); saveToServer(); renderAll(); }
+
+  // init
+  (async function init(){ await loadFromServer(); renderAll(); ensureAddButton(); ensureCanvas(); })();
+
 })();
