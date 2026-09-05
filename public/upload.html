@@ -45,9 +45,12 @@
 
       let uploadData;
       try{ uploadData = JSON.parse(respText); }catch(e){ uploadData = null; }
-      if (uploadData && uploadData.url){
-        preview.src = uploadData.url;
-        s.textContent = 'Wysłano: ' + (uploadData.key || 'plik');
+      // handle new { success: true, files: [...] } shape or old { key, url }
+      const firstFile = (uploadData && uploadData.files && uploadData.files[0]) || uploadData;
+      if (firstFile && (firstFile.url || uploadData.url)){
+        const url = firstFile.url || uploadData.url;
+        preview.src = url;
+        s.textContent = 'Wysłano: ' + (firstFile.key || firstFile.name || uploadData.key || 'plik');
       } else {
         // fallback: request file list and show newest
         const list = await fetch('/api/files');
@@ -66,13 +69,13 @@
         img.style.maxWidth = '200px';
         img.style.display = 'block';
         img.style.objectFit = 'cover';
-        img.alt = uploadData && uploadData.key ? uploadData.key : 'uploaded';
-        if (uploadData && uploadData.key) {
-          img.src = '/api/zdjecia?key=' + encodeURIComponent(uploadData.key);
-          // fallback to signed url if proxy fails
-          img.onerror = () => { if (uploadData.url) img.src = uploadData.url; };
-        } else if (uploadData && uploadData.url) {
-          img.src = uploadData.url;
+        const fileObj = (uploadData && uploadData.files && uploadData.files[0]) || uploadData;
+        img.alt = fileObj && (fileObj.key || fileObj.name) ? (fileObj.key || fileObj.name) : 'uploaded';
+        if (fileObj && fileObj.key) {
+          img.src = '/api/zdjecia?key=' + encodeURIComponent(fileObj.key);
+          img.onerror = () => { if (fileObj.url) img.src = fileObj.url; };
+        } else if (fileObj && fileObj.url) {
+          img.src = fileObj.url;
         }
         document.getElementById('zdjecia').prepend(img);
       } catch (e) { console.warn('Could not insert image into Zdjecia list', e); }

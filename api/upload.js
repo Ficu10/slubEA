@@ -3,7 +3,7 @@ const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/clien
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
 const storage = multer.memoryStorage();
-const upload = multer({ storage }).single('file');
+const upload = multer({ storage }).fields([{ name: 'file', maxCount: 1 }, { name: 'files', maxCount: 20 }]);
 
 const s3 = new S3Client({
   region: 'auto',
@@ -35,31 +35,46 @@ module.exports = async function (req, res) {
         console.error('multer error', err);
         return res.status(400).json({ error: 'invalid_form', message: err.message });
       }
-      const file = req.file;
-      if (!file) return res.status(400).json({ error: 'missing_file' });
 
-      const origName = file.originalname || 'file';
-      const safeName = String(origName).replace(/[^a-zA-Z0-9._-]/g, '_');
-      const key = `uploads/${Date.now()}-${safeName}`;
-
-      const cmd = new PutObjectCommand({
-        Bucket: process.env.R2_BUCKET_NAME,
-        Key: key,
-        Body: file.buffer,
-        ContentType: file.mimetype || 'application/octet-stream',
-      });
-
-      await s3.send(cmd);
-
-      // Try to return a signed GET URL for immediate preview (falls back to key only)
-      try {
-        const getCmd = new GetObjectCommand({ Bucket: process.env.R2_BUCKET_NAME, Key: key });
-        const url = await getSignedUrl(s3, getCmd, { expiresIn: 3600 });
-        return res.status(200).json({ key, url });
-      } catch (e) {
-        console.error('could not generate get-url', e);
-        return res.status(200).json({ key });
+      // Collect files from either 'file' or 'files' fields
+      const filesArr = [];
+      if (req.files) {
+        if (req.files.file) filesArr.push(...req.files.file);
+        if (req.files.files) filesArr.push(...req.files.files);
       }
+      // multer single might populate req.file in some contexts; include it
+      if (req.file) filesArr.push(req.file);
+
+      if (!filesArr.length) return res.status(400).json({ error: 'missing_file' });
+
+      const results = [];
+      for (const file of filesArr) {
+        const origName = file.originalname || 'file';
+        const safeName = String(origName).replace(/[^a-zA-Z0-9._-]/g, '_');
+        const key = `uploads/${Date.now()}-${safeName}`;
+
+        const cmd = new PutObjectCommand({
+          Bucket: process.env.R2_BUCKET_NAME,
+          Key: key,
+          Body: file.buffer,
+          ContentType: file.mimetype || 'application/octet-stream',
+        });
+
+        await s3.send(cmd);
+
+        let url = null;
+        try {
+          const getCmd = new GetObjectCommand({ Bucket: process.env.R2_BUCKET_NAME, Key: key });
+          url = await getSignedUrl(s3, getCmd, { expiresIn: 3600 });
+        } catch (e) {
+          console.error('could not generate get-url', e);
+        }
+        results.push({ key, url, name: safeName, contentType: file.mimetype, size: file.size });
+        // small pause to avoid identical timestamps for keys when multiple files
+        await new Promise(r => setTimeout(r, 5));
+      }
+
+      return res.status(200).json({ success: true, files: results });
     } catch (err) {
       console.error('upload error', err);
       return res.status(500).json({ error: 'internal_error', message: err.message });
