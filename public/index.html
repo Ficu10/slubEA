@@ -175,7 +175,23 @@
         }
       }
 
-    // Fullscreen gallery modal with navigation
+    // (preview functions are defined globally below)
+      // refresh gallery and show previews
+      if (uploaded.length) {
+        status.textContent = 'Wysłano!';
+        input.value = '';
+        loadGallery();
+        // also open preview for the first uploaded
+        const first = uploaded[0];
+        if (first) showPreviewByKey(first.key || first.key === 0 ? first.key : first);
+      } else {
+        status.textContent = 'Brak przesłanych plików.';
+      }
+      setTimeout(()=> status.textContent = '', 3000);
+    });
+
+    loadGallery();
+    // Fullscreen gallery modal with navigation (global scope)
     function showPreviewByKey(key){
       if (!window.GALLERY) return;
       const idx = window.GALLERY.findIndex(i => i.key === key);
@@ -255,21 +271,6 @@
 
       render();
     }
-      // refresh gallery and show previews
-      if (uploaded.length) {
-        status.textContent = 'Wysłano!';
-        input.value = '';
-        loadGallery();
-        // also open preview for the first uploaded
-        const first = uploaded[0];
-        if (first) showPreviewByKey(first.key || first.key === 0 ? first.key : first);
-      } else {
-        status.textContent = 'Brak przesłanych plików.';
-      }
-      setTimeout(()=> status.textContent = '', 3000);
-    });
-
-    loadGallery();
   </script>
   <script src="/auth.js"></script>
 </body>

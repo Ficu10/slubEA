@@ -62,28 +62,52 @@
       if (p.rect){
         el.className = 'table rect';
         el.style.width = (p.w || 28) + '%'; el.style.height = (p.h || 16) + '%';
-        el.innerHTML = `<div class="num">Para</div><div class="names">Para Młoda</div>`;
+        const label = p.label || 'Para';
+        el.innerHTML = `<div class="num">${label}</div><div class="names">Para Młoda</div>`;
       } else {
         el.className = 'table';
         const s = (p.size || 14);
         el.style.width = s + '%'; el.style.height = s + '%';
-        el.innerHTML = `<div class="num">${i+1}</div><div class="names"></div>`;
+        const label = p.label || (i+1);
+        el.innerHTML = `<div class="num">${label}</div><div class="names"></div>`;
       }
-      // admin controls (resize)
+      if (p.color){ el.style.borderColor = p.color; const numNode = el.querySelector && el.querySelector('.num'); if (numNode) numNode.style.background = p.color; }
+      // admin controls (resize / delete / edit appearance)
       const adminToken = localStorage.getItem('adminToken');
       if (adminToken){
         const ctrl = document.createElement('div'); ctrl.style.position='absolute'; ctrl.style.bottom='6px'; ctrl.style.right='6px';
         const plus = document.createElement('button'); plus.textContent='+'; plus.style.padding='4px'; plus.style.marginRight='4px';
         const minus = document.createElement('button'); minus.textContent='-'; minus.style.padding='4px';
+        const del = document.createElement('button'); del.textContent='×'; del.style.padding='4px'; del.style.marginLeft='6px';
+        const edit = document.createElement('button'); edit.textContent='✎'; edit.style.padding='4px'; edit.style.marginLeft='6px';
         plus.addEventListener('click', (e)=>{ e.stopPropagation(); resizeTable(id, 1.1); });
         minus.addEventListener('click', (e)=>{ e.stopPropagation(); resizeTable(id, 0.9); });
-        ctrl.appendChild(plus); ctrl.appendChild(minus); el.appendChild(ctrl);
+        del.addEventListener('click', (e)=>{ e.stopPropagation(); if (confirm('Usunąć stolik ' + id + '?')) deleteTable(id); });
+        edit.addEventListener('click', (e)=>{ e.stopPropagation(); editAppearance(id); });
+        ctrl.appendChild(plus); ctrl.appendChild(minus); ctrl.appendChild(edit); ctrl.appendChild(del); el.appendChild(ctrl);
       }
-      el.addEventListener('click', () => editTable(id));
+      el.addEventListener('click', (e) => { if (e.target && e.target.classList && e.target.classList.contains('person')) return; editTable(id); });
       hall.appendChild(el);
     });
     attachDragHandlers();
     renderAll();
+  }
+
+  // Add admin control button for adding a table
+  (function addAdminControls(){
+    const controls = document.querySelector('.seating-controls');
+    if (!controls) return;
+    const btn = document.createElement('button'); btn.textContent = 'Dodaj stolik'; btn.className = 'btn-outline'; btn.style.marginLeft='6px';
+    btn.addEventListener('click', ()=>{
+      if (!localStorage.getItem('adminToken')){ alert('Tylko admin może dodawać stoliki.'); return; }
+      addTable();
+    });
+    controls.appendChild(btn);
+  })();
+
+  function savePositions(newPositions){
+    positions = newPositions;
+    saveToServer();
   }
 
   function attachDragHandlers(){
@@ -122,6 +146,58 @@
     const namesDiv = el.querySelector('.names');
     namesDiv.textContent = names.join('\n') || 'Pusty stolik';
     el.classList.remove('highlight');
+    renderPeopleForTable('t'+n);
+  }
+
+  function renderPeopleForTable(tableId){
+    const el = document.getElementById(tableId);
+    if (!el) return;
+    // remove existing person nodes
+    Array.from(el.querySelectorAll('.person')).forEach(p=>p.remove());
+    const ppl = assignments[tableId] || [];
+    const count = ppl.length;
+    if (count === 0) return;
+    // compute radius based on element size
+    const rect = el.getBoundingClientRect();
+    const w = rect.width; const h = rect.height; const radius = Math.min(w,h) * 0.55;
+    for(let i=0;i<count;i++){
+      const angle = (i / count) * Math.PI * 2 - Math.PI/2; // start at top
+      const cx = 50 + (Math.cos(angle) * 40); // percent within element
+      const cy = 50 + (Math.sin(angle) * 40);
+      const person = document.createElement('div'); person.className = 'person';
+      Object.assign(person.style, { position:'absolute', left:cx+'%', top:cy+'%', transform:'translate(-50%,-50%)', width:'26px', height:'26px', borderRadius:'50%', background:'#fff', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 1px 2px rgba(0,0,0,0.12)', cursor:'pointer', border:'1px solid rgba(0,0,0,0.06)'});
+      // small icon (initials)
+      const name = ppl[i] || '';
+      const initials = name.split(' ').map(s=>s[0]||'').slice(0,2).join('').toUpperCase() || 'G';
+      person.textContent = initials;
+      person.title = name;
+      person.dataset.idx = i;
+      person.addEventListener('click', (ev)=>{ ev.stopPropagation(); showPersonDetail(tableId, i); });
+      el.appendChild(person);
+    }
+  }
+
+  function showPersonDetail(tableId, idx){
+    const arr = assignments[tableId] || [];
+    const name = arr[idx];
+    if (!name) return;
+    const newName = prompt('Szczegóły osoby przy ' + tableId + '\nWpisz imię i nazwisko:', name);
+    if (newName === null) return;
+    if (newName.trim()) arr[idx] = newName.trim(); else arr.splice(idx,1);
+    assignments[tableId] = arr.length? arr : undefined;
+    renderTable(parseInt(tableId.replace('t',''),10));
+    saveToServer();
+  }
+
+  function addTable(){
+    // add at center with default size
+    const p = { x:50, y:50, size:12 };
+    positions.push(p);
+    // ensure assignments array stays consistent
+    // rebuild UI
+    hall.innerHTML = '<div class="hall-label">Sala weselna</div>';
+    createTables();
+    saveToServer();
   }
 
   function editTable(id){
@@ -177,6 +253,51 @@
     const el = document.getElementById(id);
     if (p.rect){ el.style.width = p.w + '%'; el.style.height = p.h + '%'; }
     else { el.style.width = p.size + '%'; el.style.height = p.size + '%'; }
+    saveToServer();
+  }
+
+  function deleteTable(id){
+    const idx = parseInt(id.replace('t',''),10) - 1;
+    if (isNaN(idx)) return;
+    // remove position and assignment
+    positions.splice(idx,1);
+    // rebuild assignments: shift any table > idx down by 1
+    const newAssignments = {};
+    Object.keys(assignments).forEach(k=>{
+      const n = parseInt(k.replace('t',''),10);
+      if (n <= idx+1) {
+        // keep as-is if before removed
+        if (assignments[k]) newAssignments[k] = assignments[k];
+      } else {
+        // shift down
+        const newKey = 't' + (n-1);
+        newAssignments[newKey] = assignments[k];
+      }
+    });
+    assignments = newAssignments;
+    // persist
+    saveToServer();
+    // rebuild UI
+    hall.innerHTML = '<div class="hall-label">Sala weselna</div>';
+    createTables();
+  }
+
+  function editAppearance(id){
+    const idx = parseInt(id.replace('t',''),10) - 1;
+    if (isNaN(idx)) return;
+    const p = positions[idx] || {};
+    const label = prompt('Etykieta stolika (np. Numer lub Para):', p.label || (p.rect? 'Para': 'Stolik ' + (idx+1)));
+    const color = prompt('Kolor obramowania (np. #2f6f4e):', p.color || '');
+    if (label === null && color === null) return;
+    if (label !== null) p.label = label;
+    if (color !== null) p.color = (color||'').trim() || undefined;
+    positions[idx] = p;
+    // apply immediately
+    const el = document.getElementById(id);
+    if (el){
+      if (p.label){ const num = el.querySelector('.num'); if (num) num.textContent = p.label; }
+      if (p.color){ el.style.borderColor = p.color; const num = el.querySelector('.num'); if (num) num.style.background = p.color; }
+    }
     saveToServer();
   }
 

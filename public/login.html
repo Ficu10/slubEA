@@ -54,7 +54,7 @@
           const pass = (params.pass||'').toString();
           // emulate network delay
           await new Promise(r=>setTimeout(r,120));
-          if (user === 'adas' && pass === 'emilka'){
+          if (user === 'emilka' && pass === 'adas'){
             const token = Math.random().toString(36).slice(2) + Date.now().toString(36);
             localStorage.setItem('adminToken', token);
             localStorage.setItem('user', user);
@@ -130,7 +130,7 @@
       msg.style.color = '#c33';
       if (!user || !pass){ msg.textContent = 'Podaj login i hasło.'; updateDebug('missing_fields'); return; }
       updateDebug(`attempt userLen=${user.length} passLen=${pass.length}`);
-      if (user === 'adas' && pass === 'emilka'){
+      if (user === 'emilka' && pass === 'adas'){
         try{
           const token = Math.random().toString(36).slice(2) + Date.now().toString(36);
           localStorage.setItem('adminToken', token);
