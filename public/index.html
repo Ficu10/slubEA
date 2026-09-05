@@ -89,6 +89,8 @@
       else photos.forEach(item => {
         const card = document.createElement('div'); card.className = 'card';
         const img = document.createElement('img'); img.src = item.url; img.alt = item.name; card.appendChild(img);
+        img.style.cursor = 'pointer';
+        img.addEventListener('click', ()=> showPreview(item));
         if (adminToken){
           const del = document.createElement('button'); del.textContent = 'Usuń'; del.style.marginTop='8px'; del.style.background='#c23333'; del.style.border='none'; del.style.color='#fff'; del.style.padding='6px 8px'; del.style.borderRadius='6px';
           del.addEventListener('click', async (e)=>{
@@ -106,6 +108,8 @@
       else videos.forEach(item => {
         const card = document.createElement('div'); card.className = 'card';
         const vid = document.createElement('video'); vid.src = item.url; vid.controls = true; card.appendChild(vid);
+        vid.style.cursor = 'pointer';
+        vid.addEventListener('click', ()=> showPreview(item));
         if (adminToken){
           const del = document.createElement('button'); del.textContent = 'Usuń'; del.style.marginTop='8px'; del.style.background='#c23333'; del.style.border='none'; del.style.color='#fff'; del.style.padding='6px 8px'; del.style.borderRadius='6px';
           del.addEventListener('click', async (e)=>{
@@ -125,25 +129,82 @@
       e.preventDefault();
       const input = document.getElementById('files');
       if (!input.files.length) return alert('Wybierz pliki.');
-      const form = new FormData();
-      for (const f of input.files) form.append('files', f);
+      const files = Array.from(input.files);
       const status = document.getElementById('uploadStatus');
       status.textContent = 'Wysyłanie...';
-      try {
-        const res = await fetch(API_BASE + '/api/upload', { method: 'POST', body: form });
-        const ct = res.headers.get('content-type') || '';
-        if (!res.ok){
-          const text = await res.text().catch(()=>res.statusText||'Błąd serwera');
-          status.textContent = 'Błąd serwera: ' + text;
-        } else if (!ct.includes('application/json')){
-          const text = await res.text().catch(()=>'');
-          status.textContent = 'Nieoczekiwana odpowiedź serwera: ' + (text.slice?text.slice(0,200):'');
-        } else {
-          const data = await res.json();
-          if (data.success) { status.textContent = 'Wysłano!'; input.value = ''; loadGallery(); }
-          else status.textContent = 'Błąd podczas wysyłania.';
+      const MAX_DIRECT = 10 * 1024 * 1024; // 10MB threshold for server-side upload
+      const uploaded = [];
+      for (const f of files) {
+        try {
+          if (f.size > MAX_DIRECT) {
+            // use presigned PUT
+            status.textContent = `Uzyskiwanie linku do wysyłki ${f.name}...`;
+            const signResp = await fetch(API_BASE + '/api/sign-url', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ filename: f.name, contentType: f.type }) });
+            if (!signResp.ok) throw new Error('Cannot get signed URL');
+            const sign = await signResp.json();
+            // upload via PUT with XHR to allow progress
+            await new Promise((resolve, reject) => {
+              const xhr = new XMLHttpRequest();
+              xhr.open('PUT', sign.url, true);
+              if (f.type) xhr.setRequestHeader('Content-Type', f.type);
+              xhr.upload.onprogress = (e) => { if (e.lengthComputable) status.textContent = `Wysyłanie ${f.name}: ${Math.round((e.loaded/e.total)*100)}%`; };
+              xhr.onload = async () => { if (xhr.status >= 200 && xhr.status < 300) resolve(); else reject(new Error('Upload failed: ' + xhr.status)); };
+              xhr.onerror = () => reject(new Error('Network error during upload'));
+              xhr.send(f);
+            });
+            // get preview URL
+            const getUrlResp = await fetch(API_BASE + '/api/get-url?key=' + encodeURIComponent(sign.key));
+            let previewUrl = null;
+            if (getUrlResp.ok) { const j = await getUrlResp.json(); previewUrl = j.url; }
+            uploaded.push({ key: sign.key, url: previewUrl, name: f.name, contentType: f.type, size: f.size });
+          } else {
+            // small file — send to server endpoint
+            const form = new FormData(); form.append('files', f);
+            status.textContent = `Wysyłanie ${f.name}...`;
+            const res = await fetch(API_BASE + '/api/upload', { method: 'POST', body: form });
+            if (!res.ok) throw new Error('Upload error');
+            const j = await res.json();
+            const fileObj = (j.files && j.files[0]) || j;
+            uploaded.push(fileObj);
+          }
+        } catch (err) {
+          console.error('upload error', err);
+          status.textContent = `Błąd wysyłania ${f.name}: ${err.message}`;
         }
-      } catch (err) { status.textContent = 'Błąd: ' + err.message; }
+      }
+
+    // Preview modal
+    function showPreview(item){
+      let url = item.url;
+      if (!url && item.key) url = API_BASE + '/api/zdjecia?key=' + encodeURIComponent(item.key);
+      if (!url) return;
+      let modal = document.getElementById('previewModal');
+      if (!modal){
+        modal = document.createElement('div'); modal.id = 'previewModal';
+        Object.assign(modal.style, { position:'fixed', left:0,top:0,right:0,bottom:0,background:'rgba(0,0,0,0.8)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:9999 });
+        modal.addEventListener('click', ()=> modal.remove());
+        const inner = document.createElement('div'); inner.style.maxWidth='90%'; inner.style.maxHeight='90%'; inner.style.background='transparent'; modal.appendChild(inner);
+        document.body.appendChild(modal);
+      } else { modal.innerHTML = ''; }
+      const isVideo = (item.type === 'video') || /\.mp4$|\.mov$|\.webm$/i.test(item.name || (item.key||''));
+      const container = modal.firstChild || modal.children[0];
+      if (isVideo){
+        const v = document.createElement('video'); v.src = url; v.controls = true; v.autoplay = true; v.style.maxWidth='100%'; v.style.maxHeight='100%'; container.appendChild(v);
+      } else {
+        const im = document.createElement('img'); im.src = url; im.style.maxWidth='100%'; im.style.maxHeight='100%'; container.appendChild(im);
+      }
+    }
+      // refresh gallery and show previews
+      if (uploaded.length) {
+        status.textContent = 'Wysłano!';
+        input.value = '';
+        loadGallery();
+        // also open preview for the first uploaded
+        const first = uploaded[0];
+        if (first) showPreview(first);
+      } else {
+        status.textContent = 'Brak przesłanych plików.';
+      }
       setTimeout(()=> status.textContent = '', 3000);
     });
 
