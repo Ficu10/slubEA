@@ -8,6 +8,7 @@
   "routes": [
     { "src": "/zdjecia/(.*)", "dest": "/api/zdjecia?key=$1" },
     { "src": "/api/ping", "dest": "/api/ping.js" },
+    { "src": "/api/zdjecia", "dest": "/api/zdjecia.js" },
     { "src": "/api/upload", "dest": "/api/upload.js" },
     { "src": "/api/(.*)", "dest": "/api/$1" },
     { "src": "/(.*)", "dest": "/public/$1" }
