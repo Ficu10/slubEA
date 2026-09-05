@@ -13,6 +13,8 @@
   let positions = [];
   let assignments = {};
   let drawings = [];
+  let history = { past: [], future: [] };
+  let snapToGrid = false;
 
   // default template (used if server has none)
   const defaultPositions = [
@@ -49,6 +51,17 @@
       await fetch(API_BASE + '/api/seating', { method:'POST', headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+token }, body: JSON.stringify(body) });
     }catch(e){ saveLocal(); }
   }
+
+  function pushHistory(){
+    try{
+      const snapshot = { positions: JSON.parse(JSON.stringify(positions)), assignments: JSON.parse(JSON.stringify(assignments)), drawings: JSON.parse(JSON.stringify(drawings)) };
+      history.past.push(snapshot); if (history.past.length > 60) history.past.shift(); history.future = [];
+    }catch(e){ console.warn('history push failed', e); }
+  }
+
+  function undo(){ if (!history.past.length) return; const cur = { positions: JSON.parse(JSON.stringify(positions)), assignments: JSON.parse(JSON.stringify(assignments)), drawings: JSON.parse(JSON.stringify(drawings)) }; history.future.push(cur); const prev = history.past.pop(); positions = prev.positions; assignments = prev.assignments; drawings = prev.drawings; saveToServer(); renderAll(); }
+
+  function redo(){ if (!history.future.length) return; const cur = { positions: JSON.parse(JSON.stringify(positions)), assignments: JSON.parse(JSON.stringify(assignments)), drawings: JSON.parse(JSON.stringify(drawings)) }; history.past.push(cur); const nx = history.future.pop(); positions = nx.positions; assignments = nx.assignments; drawings = nx.drawings; saveToServer(); renderAll(); }
 
   // Rendering
   function clearHall(){ hall.innerHTML = '<div class="hall-label">Sala weselna</div>'; }
@@ -159,8 +172,12 @@
     const dup = createBtn('⧉', 'Powiel', ()=> duplicateTable(index));
     const edit = createBtn('✎', 'Edytuj osoby (lista)', ()=> editTable('t'+(index+1)));
     const del = createBtn('🗑', 'Usuń', ()=>{ if(confirm('Usunąć stolik?')){ deleteTable(index); } });
+    const undoBtn = createBtn('↶', 'Cofnij', ()=>{ undo(); });
+    const redoBtn = createBtn('↷', 'Ponów', ()=>{ redo(); });
+    const snapBtn = createBtn('🔲', 'Snap: off', ()=>{ snapToGrid = !snapToGrid; snapBtn.textContent = snapToGrid? '🔲 On':'🔲 Off'; });
+    toolbar.appendChild(undoBtn); toolbar.appendChild(redoBtn);
     toolbar.appendChild(inc); toolbar.appendChild(dec); toolbar.appendChild(addP); toolbar.appendChild(rename);
-    toolbar.appendChild(shape); toolbar.appendChild(dup); toolbar.appendChild(edit); toolbar.appendChild(del);
+    toolbar.appendChild(shape); toolbar.appendChild(dup); toolbar.appendChild(edit); toolbar.appendChild(del); toolbar.appendChild(snapBtn);
     document.body.appendChild(toolbar);
     // position near element
     const r = el.getBoundingClientRect(); toolbar.style.left = (r.right + 10) + 'px'; toolbar.style.top = (r.top) + 'px';
@@ -172,13 +189,13 @@
 
   function changeSize(index, factor){ const p = positions[index]; if (!p) return; if (p.shape==='rect'){ p.w = Math.max(6, Math.min(80, (p.w||28)*factor)); p.h = Math.max(6, Math.min(60, (p.h||16)*factor)); } else { p.size = Math.max(6, Math.min(50, (p.size||14)*factor)); } saveToServer(); renderAll(); }
   function toggleShape(index){ const p = positions[index]; if (!p) return; p.shape = (p.shape==='rect')? 'circle':'rect'; // keep existing size fields
-    saveToServer(); renderAll(); }
+    pushHistory(); saveToServer(); renderAll(); }
 
   function duplicateTable(index){ const p = positions[index]; const clone = JSON.parse(JSON.stringify(p)); clone.x = Math.min(90, (p.x||50)+6); clone.y = Math.min(90, (p.y||50)+6); positions.push(clone);
     // copy assignments
     const oldKey = 't'+(index+1); const newKey = 't'+(positions.length);
     if (assignments[oldKey]) assignments[newKey] = assignments[oldKey].slice();
-    saveToServer(); renderAll(); }
+    pushHistory(); saveToServer(); renderAll(); }
 
   function addPersonToTable(index){
     const key = 't'+(index+1);
@@ -187,7 +204,7 @@
     if (!name) return;
     assignments[key] = assignments[key] || [];
     assignments[key].push(name.trim());
-    saveToServer(); renderAll();
+    pushHistory(); saveToServer(); renderAll();
   }
 
   function renameTable(index){
@@ -197,14 +214,14 @@
     if (label === null) return;
     p.label = label.trim() || undefined;
     positions[index] = p;
-    saveToServer(); renderAll();
+    pushHistory(); saveToServer(); renderAll();
   }
 
   function deleteTable(index){ positions.splice(index,1);
     // shift assignments
     const newAssign = {};
     Object.keys(assignments).forEach(k=>{ const n = parseInt(k.replace('t',''),10); if (n <= index+1) newAssign[k] = assignments[k]; else newAssign['t'+(n-1)] = assignments[k]; });
-    assignments = newAssign; saveToServer(); renderAll(); }
+    assignments = newAssign; pushHistory(); saveToServer(); renderAll(); }
 
   function editTable(tableId){ const arr = assignments[tableId] || []; if (!isAdmin()){ alert('Przy ' + tableId + ' siedzą:\n' + (arr.join('\n')||'Pusty stolik')); return; }
     const val = prompt('Wpisz imiona (oddziel przecinkami):', arr.join(', ')); if (val === null) return; const newArr = val.split(',').map(s=>s.trim()).filter(Boolean); if (newArr.length) assignments[tableId] = newArr; else delete assignments[tableId]; saveToServer(); renderAll(); }
@@ -215,7 +232,9 @@
     el.addEventListener('pointerdown', (ev)=>{
       if (!isAdmin()) return; ev.preventDefault(); moving = true; start = { x: ev.clientX, y: ev.clientY }; document.body.style.userSelect='none';
       const onMove = (e)=>{ if (!moving) return; const rect = hall.getBoundingClientRect(); const dx = e.clientX - start.x; const dy = e.clientY - start.y; // compute new relative position using element center
-        const centerX = ((e.clientX - rect.left) / rect.width) * 100; const centerY = ((e.clientY - rect.top) / rect.height) * 100; positions[index].x = Math.max(2, Math.min(98, centerX)); positions[index].y = Math.max(2, Math.min(98, centerY)); renderAll(); };
+        let centerX = ((e.clientX - rect.left) / rect.width) * 100; let centerY = ((e.clientY - rect.top) / rect.height) * 100;
+        if (snapToGrid){ const grid = 2; centerX = Math.round(centerX / grid) * grid; centerY = Math.round(centerY / grid) * grid; }
+        positions[index].x = Math.max(2, Math.min(98, centerX)); positions[index].y = Math.max(2, Math.min(98, centerY)); renderAll(); };
       const onUp = ()=>{ moving=false; document.body.style.userSelect='auto'; saveToServer(); document.removeEventListener('pointermove',onMove); document.removeEventListener('pointerup',onUp); };
       document.addEventListener('pointermove', onMove); document.addEventListener('pointerup', onUp);
     });
