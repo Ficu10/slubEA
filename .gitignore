@@ -4,3 +4,5 @@ gdrive-key.json
 response.json
 test.png
 .env
+.vercel
+.env*
