@@ -84,13 +84,15 @@
       }
       const photos = items.filter(i => i.type === 'image');
       const videos = items.filter(i => i.type === 'video');
+      // expose ordered gallery for preview navigation
+      window.GALLERY = items.slice();
       const adminToken = localStorage.getItem('adminToken');
       if (!photos.length) photosGrid.innerHTML = '<p>Brak przesłanych zdjęć.</p>';
       else photos.forEach(item => {
         const card = document.createElement('div'); card.className = 'card';
         const img = document.createElement('img'); img.src = item.url; img.alt = item.name; card.appendChild(img);
         img.style.cursor = 'pointer';
-        img.addEventListener('click', ()=> showPreview(item));
+        img.addEventListener('click', ()=> showPreviewByKey(item.key));
         if (adminToken){
           const del = document.createElement('button'); del.textContent = 'Usuń'; del.style.marginTop='8px'; del.style.background='#c23333'; del.style.border='none'; del.style.color='#fff'; del.style.padding='6px 8px'; del.style.borderRadius='6px';
           del.addEventListener('click', async (e)=>{
@@ -109,7 +111,7 @@
         const card = document.createElement('div'); card.className = 'card';
         const vid = document.createElement('video'); vid.src = item.url; vid.controls = true; card.appendChild(vid);
         vid.style.cursor = 'pointer';
-        vid.addEventListener('click', ()=> showPreview(item));
+        vid.addEventListener('click', ()=> showPreviewByKey(item.key));
         if (adminToken){
           const del = document.createElement('button'); del.textContent = 'Usuń'; del.style.marginTop='8px'; del.style.background='#c23333'; del.style.border='none'; del.style.color='#fff'; del.style.padding='6px 8px'; del.style.borderRadius='6px';
           del.addEventListener('click', async (e)=>{
@@ -173,26 +175,85 @@
         }
       }
 
-    // Preview modal
-    function showPreview(item){
-      let url = item.url;
-      if (!url && item.key) url = API_BASE + '/api/zdjecia?key=' + encodeURIComponent(item.key);
-      if (!url) return;
-      let modal = document.getElementById('previewModal');
-      if (!modal){
-        modal = document.createElement('div'); modal.id = 'previewModal';
-        Object.assign(modal.style, { position:'fixed', left:0,top:0,right:0,bottom:0,background:'rgba(0,0,0,0.8)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:9999 });
-        modal.addEventListener('click', ()=> modal.remove());
-        const inner = document.createElement('div'); inner.style.maxWidth='90%'; inner.style.maxHeight='90%'; inner.style.background='transparent'; modal.appendChild(inner);
-        document.body.appendChild(modal);
-      } else { modal.innerHTML = ''; }
-      const isVideo = (item.type === 'video') || /\.mp4$|\.mov$|\.webm$/i.test(item.name || (item.key||''));
-      const container = modal.firstChild || modal.children[0];
-      if (isVideo){
-        const v = document.createElement('video'); v.src = url; v.controls = true; v.autoplay = true; v.style.maxWidth='100%'; v.style.maxHeight='100%'; container.appendChild(v);
-      } else {
-        const im = document.createElement('img'); im.src = url; im.style.maxWidth='100%'; im.style.maxHeight='100%'; container.appendChild(im);
+    // Fullscreen gallery modal with navigation
+    function showPreviewByKey(key){
+      if (!window.GALLERY) return;
+      const idx = window.GALLERY.findIndex(i => i.key === key);
+      if (idx === -1) return;
+      showPreviewIndex(idx);
+    }
+
+    function showPreviewIndex(startIndex){
+      const gallery = window.GALLERY || [];
+      let index = startIndex;
+
+      function render(){
+        const item = gallery[index];
+        if (!item) return;
+        let url = item.url || (item.key ? API_BASE + '/api/zdjecia?key=' + encodeURIComponent(item.key) : null);
+        if (!url) return;
+        const isVideo = (item.type === 'video') || /\.mp4$|\.mov$|\.webm$/i.test(item.name || (item.key||''));
+
+        // create or reuse modal
+        let modal = document.getElementById('previewModal');
+        if (!modal){
+          modal = document.createElement('div'); modal.id = 'previewModal';
+          Object.assign(modal.style, { position:'fixed', left:0,top:0,right:0,bottom:0,background:'rgba(0,0,0,0.9)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:9999 });
+          document.body.appendChild(modal);
+        }
+        modal.innerHTML = '';
+
+        const closeBtn = document.createElement('button'); closeBtn.textContent = '✕';
+        Object.assign(closeBtn.style, { position:'absolute', right:'18px', top:'18px', background:'transparent', color:'#fff', border:'none', fontSize:'28px', cursor:'pointer' });
+        closeBtn.addEventListener('click', ()=> modal.remove());
+        modal.appendChild(closeBtn);
+
+        const left = document.createElement('button'); left.innerHTML = '&#10094;';
+        Object.assign(left.style, { position:'absolute', left:'18px', top:'50%', transform:'translateY(-50%)', background:'transparent', color:'#fff', border:'none', fontSize:'48px', cursor:'pointer' });
+        left.addEventListener('click', (e)=>{ e.stopPropagation(); index = (index-1+gallery.length)%gallery.length; render(); });
+        modal.appendChild(left);
+
+        const right = document.createElement('button'); right.innerHTML = '&#10095;';
+        Object.assign(right.style, { position:'absolute', right:'18px', top:'50%', transform:'translateY(-50%)', background:'transparent', color:'#fff', border:'none', fontSize:'48px', cursor:'pointer' });
+        right.addEventListener('click', (e)=>{ e.stopPropagation(); index = (index+1)%gallery.length; render(); });
+        modal.appendChild(right);
+
+        const container = document.createElement('div');
+        Object.assign(container.style, { maxWidth:'95%', maxHeight:'95%', display:'flex', alignItems:'center', justifyContent:'center' });
+        modal.appendChild(container);
+
+        if (isVideo){
+          const v = document.createElement('video'); v.src = url; v.controls = true; v.autoplay = true; v.style.maxWidth='100%'; v.style.maxHeight='100%'; container.appendChild(v);
+        } else {
+          const im = document.createElement('img'); im.src = url; im.style.maxWidth='100%'; im.style.maxHeight='100%'; container.appendChild(im);
+        }
+
+        // keyboard navigation
+        function onKey(e){
+          if (e.key === 'ArrowLeft') { index = (index-1+gallery.length)%gallery.length; render(); }
+          if (e.key === 'ArrowRight') { index = (index+1)%gallery.length; render(); }
+          if (e.key === 'Escape') { cleanup(); }
+        }
+
+        function cleanup(){
+          window.removeEventListener('keydown', onKey);
+          modal.remove();
+        }
+
+        window.addEventListener('keydown', onKey);
+
+        // swipe support
+        let startX = null;
+        container.addEventListener('touchstart', (ev)=>{ startX = ev.touches[0].clientX; });
+        container.addEventListener('touchend', (ev)=>{
+          if (startX === null) return; const dx = ev.changedTouches[0].clientX - startX; if (Math.abs(dx) > 40){ if (dx < 0) index = (index+1)%gallery.length; else index = (index-1+gallery.length)%gallery.length; render(); } startX = null;
+        });
+
+        // close when clicking outside
+        modal.addEventListener('click', (e)=>{ if (e.target === modal) cleanup(); });
       }
+
+      render();
     }
       // refresh gallery and show previews
       if (uploaded.length) {
