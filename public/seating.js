@@ -214,7 +214,17 @@
   function removeToolbar(){ if (toolbar && toolbar.parentNode) toolbar.parentNode.removeChild(toolbar); toolbar = null; selectedIndex = null; }
   document.addEventListener('click', ()=> removeToolbar());
 
-  function changeSize(index, factor){ const p = positions[index]; if (!p) return; if (p.shape==='rect'){ p.w = Math.max(6, Math.min(80, (p.w||28)*factor)); p.h = Math.max(6, Math.min(60, (p.h||16)*factor)); } else { p.size = Math.max(6, Math.min(50, (p.size||14)*factor)); } saveToServer(); renderAll(); }
+  function changeSize(index, factor){ const p = positions[index]; if (!p) return;
+    if (p.shape==='rect'){
+      p.w = Math.max(6, Math.min(80, (p.w||28)*factor));
+      p.h = Math.max(6, Math.min(60, (p.h||16)*factor));
+      // if enlarging and rectangle becomes large/near-square, convert to circle
+      if (factor > 1){ const avg = (p.w + p.h) / 2; if (avg >= 30 || Math.abs(p.w - p.h) < 6){ p.shape = 'circle'; p.size = Math.round(Math.max(6, Math.min(50, avg))); } }
+    } else {
+      p.size = Math.max(6, Math.min(50, (p.size||14)*factor));
+    }
+    pushHistory(); saveToServer(); renderAll(); setTimeout(()=> refreshToolbarReadout && refreshToolbarReadout(),50);
+  }
   function toggleShape(index){ const p = positions[index]; if (!p) return; p.shape = (p.shape==='rect')? 'circle':'rect'; // keep existing size fields
     pushHistory(); saveToServer(); renderAll(); }
 
