@@ -195,24 +195,34 @@
         }
         // was dragging: handle drop
         el.style.opacity = '1';
-        const dropEl = document.elementFromPoint(e.clientX, e.clientY);
-        const targetTable = dropEl && dropEl.closest && dropEl.closest('.table');
-        if (targetTable){ const toId = targetTable.id; if (toId && toId !== tableId){ // move person to other table
-            const fromArr = assignments[tableId] || []; const item = fromArr[idx]; if (!item) { cleanup(); return; }
-            let removed = null;
-            for(let i=0;i<fromArr.length;i++){ if (i===idx){ removed = fromArr.splice(i,1)[0]; break; } }
-            if (!removed){ for(let i=0;i<fromArr.length;i++){ const it = fromArr[i]; const name = typeof it==='string'? it : (it && it.name); const orig = typeof item==='string'? item : (item && item.name); if (name === orig){ removed = fromArr.splice(i,1)[0]; break; } } }
-            if (fromArr.length) assignments[tableId] = fromArr; else delete assignments[tableId];
+        // determine target table by checking bounding rects (more robust than elementFromPoint)
+        const allTables = Array.from(document.querySelectorAll('.table'));
+        let targetTable = null;
+        for (const t of allTables){ const r = t.getBoundingClientRect(); if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom){ targetTable = t; break; } }
+        if (targetTable){ const toId = targetTable.id;
+          const fromArr = assignments[tableId] || [];
+          // find the item robustly (by index if possible, otherwise by matching name)
+          let item = fromArr[idx]; if (!item){ // fallback: try match by name
+            const possible = fromArr.find(it=>{ const n = typeof it==='string'? it : (it && it.name); const orig = (typeof item==='string')? item : (item && item.name); return n && orig && n === orig; }); item = possible; }
+          if (!item){ cleanup(); return; }
+          // remove item from source array by identity
+          const remIndex = fromArr.indexOf(item);
+          let removed = null;
+          if (remIndex >= 0){ removed = fromArr.splice(remIndex,1)[0]; }
+          if (fromArr.length) assignments[tableId] = fromArr; else delete assignments[tableId];
+
+          if (toId && toId !== tableId){ // move to another table
             assignments[toId] = assignments[toId] || [];
             if (removed && removed.pos) delete removed.pos;
             assignments[toId].push(removed);
             pushHistory(); saveToServer(); renderAll();
-          } else if (toId === tableId){
+          } else { // dropped inside same table: compute relative percentage coordinates
             const tRect = targetTable.getBoundingClientRect(); const relX = ((e.clientX - tRect.left) / tRect.width) * 100; const relY = ((e.clientY - tRect.top) / tRect.height) * 100;
-            const fromArr = assignments[tableId] || []; const item = fromArr[idx]; if (!item) { cleanup(); return; }
             const obj = (typeof item === 'string')? { name: item } : item;
             obj.pos = { x: Math.max(2, Math.min(98, relX)), y: Math.max(2, Math.min(98, relY)) };
-            fromArr[idx] = obj; assignments[tableId] = fromArr;
+            // insert back at end (or original index) — keep order simple
+            assignments[tableId] = assignments[tableId] || [];
+            assignments[tableId].push(obj);
             pushHistory(); saveToServer(); renderAll();
           }
         }
