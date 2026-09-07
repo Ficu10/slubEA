@@ -33,15 +33,20 @@ module.exports = async function (req, res) {
         const json = JSON.parse(body);
         return res.status(200).json(json);
       }catch(e){
-        // fallback to bundled file on filesystem
+        // fallback to bundled file on filesystem (try a couple of sensible locations)
         try{
           const fs = require('fs');
           const path = require('path');
-          const file = path.join(__dirname, '..', 'data', 'seating.json');
-          const body = fs.readFileSync(file, 'utf8');
-          return res.status(200).json(JSON.parse(body));
+          const candidates = [ path.join(__dirname, '..', 'data', 'seating.json'), path.join(process.cwd(), 'data', 'seating.json') ];
+          for(const file of candidates){
+            try{ if (fs.existsSync(file)){ const body = fs.readFileSync(file, 'utf8'); return res.status(200).json(JSON.parse(body)); } }catch(x){}
+          }
+          // last-ditch: try require relative
+          try{ const body = require('../data/seating.json'); return res.status(200).json(body); }catch(ignore){}
+          console.error('seating get error: no data file, r2 err=', e && e.stack ? e.stack : e);
+          return res.status(500).json({ error: 'read_failed' });
         }catch(err){
-          console.error('seating get error', err);
+          console.error('seating get fatal', err && err.stack ? err.stack : err);
           return res.status(500).json({ error: 'read_failed' });
         }
       }
