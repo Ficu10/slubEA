@@ -527,19 +527,7 @@
   }
   function addTable(){ positions.push({ x:50, y:50, size:12, shape:'circle' }); saveToServer(); renderAll(); }
 
-  // Admin quick-login control (for convenience)
-  function ensureAdminControl(){ if (document.getElementById('adminToggle')) return; const a = document.createElement('button'); a.id='adminToggle'; a.className='btn-outline'; a.style.marginLeft='6px';
-    function update(){ if (isAdmin()){ a.textContent = 'Wyloguj admin'; a.title='Wyloguj'; } else { a.textContent = 'Zaloguj admin'; a.title='Zaloguj jako admin (emilka)'; }
-      // remove admin-only buttons when not admin
-      if (!isAdmin()){ const addBtn = document.getElementById('addTableBtn'); if (addBtn && addBtn.parentNode) addBtn.parentNode.removeChild(addBtn); const editBtn = document.getElementById('editModeBtn'); if (editBtn && editBtn.parentNode) editBtn.parentNode.removeChild(editBtn); }
-    }
-    a.addEventListener('click', ()=>{
-      if (isAdmin()){ localStorage.removeItem('adminToken'); update(); renderAll(); return; }
-      const user = prompt('Login:', 'emilka'); if (user === null) return; const pass = prompt('Hasło:', 'adas'); if (pass === null) return;
-      if (user === 'emilka' && pass === 'adas'){ localStorage.setItem('adminToken', 'local-test-token'); update(); ensureAddButton(); alert('Zalogowano jako admin'); } else { alert('Nieprawidłowe dane'); }
-    });
-    controls.appendChild(a); update();
-  }
+  
 
   // Edit mode toggle (tables <-> people)
   function ensureEditModeButton(){ if (document.getElementById('editModeBtn')) return; const b = document.createElement('button'); b.id='editModeBtn'; b.className='btn-outline'; b.style.marginLeft='6px';
@@ -550,21 +538,8 @@
     controls.appendChild(b); update(); }
 
   // init
-  (async function init(){ await loadFromServer(); renderAll(); ensureAddButton(); ensureCanvas(); ensureEditModeButton(); ensureAdminControl(); })();
+  (async function init(){ await loadFromServer(); renderAll(); ensureAddButton(); ensureCanvas(); ensureEditModeButton(); })();
 
-  // Local login helper (visible button for quicker testing)
-  function ensureLocalLoginButton(){
-    if (document.getElementById('localLoginBtn')) return;
-    const b = document.createElement('button'); b.id='localLoginBtn'; b.className='btn-outline'; b.style.marginLeft='8px';
-    function update(){ b.textContent = isAdmin()? 'Wyloguj admin (lokalnie)':'Zaloguj lokalnie'; }
-    b.addEventListener('click', ()=>{
-      if (isAdmin()){ localStorage.removeItem('adminToken'); update(); renderAll(); alert('Wylogowano admin'); return; }
-      localStorage.setItem('adminToken','local-test-token'); update(); ensureAddButton(); renderAll(); alert('Zalogowano jako admin (lokalnie)');
-    });
-    controls.appendChild(b); update();
-  }
-
-  // expose local-login button for convenience
-  ensureLocalLoginButton();
+  
 
 })();
