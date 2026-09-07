@@ -49,9 +49,11 @@ module.exports = async function (req, res) {
 
       const results = [];
       for (const file of filesArr) {
-        const origName = file.originalname || 'file';
-        const safeName = String(origName).replace(/[^a-zA-Z0-9._-]/g, '_');
-        const key = `uploads/${Date.now()}-${safeName}`;
+          const origName = file.originalname || 'file';
+          const safeName = String(origName).replace(/[^a-zA-Z0-9._-]/g, '_');
+          // allow client to specify a folder (e.g., 'avatars') via query param to keep avatar uploads separate
+          const folder = (req.query && req.query.folder) ? String(req.query.folder).replace(/[^a-zA-Z0-9_\-]/g,'') : 'uploads';
+          const key = `${folder}/${Date.now()}-${safeName}`;
 
         const cmd = new PutObjectCommand({
           Bucket: process.env.R2_BUCKET_NAME,
