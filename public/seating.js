@@ -205,7 +205,22 @@
     const list = assignments[tableId] || [];
     const item = list[idx]; if (!item) return;
     const person = (typeof item === 'string')? { name: item, info: '' } : JSON.parse(JSON.stringify(item || { name: '' }));
-    if (!isAdmin()){ alert(person.name + '\n\nPrzy ' + tableId + ' siedzą:\n' + ((list||[]).map(it=> typeof it === 'string'? it : (it && it.name)).join('\n')||'Pusty stolik')); return; }
+    if (!isAdmin()){
+      // view-only modal for non-admins: show large avatar, name and info
+      const viewModal = document.createElement('div'); Object.assign(viewModal.style,{ position:'fixed', left:0, top:0, right:0, bottom:0, background:'rgba(0,0,0,0.6)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:22000 });
+      const card = document.createElement('div'); Object.assign(card.style,{ background:'#fff', padding:'18px', borderRadius:'10px', minWidth:'320px', maxWidth:'560px', textAlign:'center' });
+      const big = document.createElement('div'); Object.assign(big.style,{ width:'220px', height:'220px', margin:'0 auto 12px', borderRadius:'12px', overflow:'hidden', background:'#f3f3f3', display:'flex', alignItems:'center', justifyContent:'center' });
+      if (person.avatar && (person.avatar.url||person.avatar.key)){
+        const img2 = document.createElement('img'); img2.src = person.avatar.url || person.avatar.key; img2.alt = person.name; Object.assign(img2.style,{ width:'100%', height:'100%', objectFit:'cover' }); big.appendChild(img2);
+      } else {
+        const initials = (person.name||'').split(' ').map(s=>s[0]||'').slice(0,2).join('').toUpperCase()||'G'; const sp2 = document.createElement('div'); sp2.textContent = initials; sp2.style.fontSize='72px'; sp2.style.fontWeight='700'; big.appendChild(sp2);
+      }
+      const h = document.createElement('div'); h.textContent = person.name || ''; h.style.fontSize='20px'; h.style.fontWeight='700'; h.style.marginBottom='6px';
+      const infoDiv = document.createElement('div'); infoDiv.textContent = person.info || ''; infoDiv.style.whiteSpace='pre-wrap'; infoDiv.style.color='#444'; infoDiv.style.marginBottom='12px';
+      const closeBtn = document.createElement('button'); closeBtn.textContent='Zamknij'; closeBtn.className='btn-outline'; closeBtn.addEventListener('click', ()=> viewModal.remove());
+      card.appendChild(big); card.appendChild(h); card.appendChild(infoDiv); card.appendChild(closeBtn); viewModal.appendChild(card); document.body.appendChild(viewModal);
+      return;
+    }
     // build modal to edit name, info and avatar
     const modal = document.createElement('div'); Object.assign(modal.style,{ position:'fixed', left:0, top:0, right:0, bottom:0, background:'rgba(0,0,0,0.6)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:21000 });
     const box = document.createElement('div'); Object.assign(box.style,{ background:'#fff', padding:'14px', borderRadius:'10px', minWidth:'320px', maxWidth:'520px' });
