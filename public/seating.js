@@ -15,6 +15,7 @@
   let drawings = [];
   let history = { past: [], future: [] };
   let snapToGrid = false;
+  let editMode = 'tables'; // 'tables' or 'people'
 
   // default template (used if server has none)
   const defaultPositions = [
@@ -106,7 +107,7 @@
     renderPeople(el, 't'+(index+1));
 
     // events
-    el.addEventListener('click', (e)=>{ if (e.defaultPrevented) return; selectTable(index, el); });
+    el.addEventListener('click', (e)=>{ if (e.defaultPrevented) return; if (editMode === 'tables') selectTable(index, el); else editTable(id); });
 
     // drag
     makeDraggable(el, index);
@@ -142,7 +143,7 @@
       const label = document.createElement('div'); label.className = 'person-label'; label.textContent = name; label.style.display='none';
       person.addEventListener('mouseenter', ()=> label.style.display = 'block');
       person.addEventListener('mouseleave', ()=> label.style.display = 'none');
-      person.addEventListener('click', (ev)=>{ ev.stopPropagation(); onPersonClick(tableId, i); });
+      person.addEventListener('click', (ev)=>{ ev.stopPropagation(); if (editMode === 'people') onPersonClick(tableId, i); else { /* treat as table click */ selectTable(parseInt(tableId.replace('t',''),10)-1, document.getElementById(tableId)); } });
       tableEl.appendChild(person); tableEl.appendChild(label);
     }
   }
@@ -393,10 +394,14 @@
     controls.appendChild(a); update();
   }
 
+  // Edit mode toggle (tables <-> people)
+  function ensureEditModeButton(){ if (document.getElementById('editModeBtn')) return; const b = document.createElement('button'); b.id='editModeBtn'; b.className='btn-outline'; b.style.marginLeft='6px';
+    function update(){ b.textContent = (editMode === 'tables')? 'Edytuj: Stoły' : 'Edytuj: Osoby'; }
+    b.addEventListener('click', ()=>{ editMode = (editMode === 'tables')? 'people' : 'tables'; update(); renderAll(); });
+    controls.appendChild(b); update(); }
+
   // init
-  (async function init(){ await loadFromServer(); renderAll(); ensureAddButton(); ensureCanvas(); })();
-  // admin control
-  (function initAdmin(){ ensureAdminControl(); })();
+  (async function init(){ await loadFromServer(); renderAll(); ensureAddButton(); ensureCanvas(); ensureEditModeButton(); ensureAdminControl(); })();
 
   // Local login helper (visible button for quicker testing)
   function ensureLocalLoginButton(){
