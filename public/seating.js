@@ -374,4 +374,19 @@
   // admin control
   (function initAdmin(){ ensureAdminControl(); })();
 
+  // Local login helper (visible button for quicker testing)
+  function ensureLocalLoginButton(){
+    if (document.getElementById('localLoginBtn')) return;
+    const b = document.createElement('button'); b.id='localLoginBtn'; b.className='btn-outline'; b.style.marginLeft='8px';
+    function update(){ b.textContent = isAdmin()? 'Wyloguj admin (lokalnie)':'Zaloguj lokalnie'; }
+    b.addEventListener('click', ()=>{
+      if (isAdmin()){ localStorage.removeItem('adminToken'); update(); renderAll(); alert('Wylogowano admin'); return; }
+      localStorage.setItem('adminToken','local-test-token'); update(); ensureAddButton(); renderAll(); alert('Zalogowano jako admin (lokalnie)');
+    });
+    controls.appendChild(b); update();
+  }
+
+  // expose local-login button for convenience
+  ensureLocalLoginButton();
+
 })();
