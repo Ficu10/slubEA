@@ -150,25 +150,24 @@
   function onPersonClick(tableId, idx){
     const list = assignments[tableId] || [];
     const item = list[idx]; if (!item) return;
-    const name = (typeof item === 'string')? item : (item && item.name) || '';
-    if (!isAdmin()){ alert(name + '\n\nPrzy ' + tableId + ' siedzą:\n' + ((list||[]).map(it=> typeof it === 'string'? it : (it && it.name)).join('\n')||'Pusty stolik')); return; }
-    // present simple edit options: rename, change avatar, or remove
-    const action = prompt('Edycja osoby:\nWpisz nowe imię aby zmienić nazwę, wpisz `:avatar` aby zmienić avatar, wpisz pusty tekst aby usunąć.\nObecnie: ' + name, name);
-    if (action === null) return;
-    const val = action.trim();
-    if (val === ''){ // remove
-      list.splice(idx,1);
-    } else if (val === ':avatar'){
-      // change avatar
-      pickAndUploadAvatar().then(avatar => {
-        if (!avatar) return; const cur = list[idx]; if (typeof cur === 'string') list[idx] = { name: cur, avatar }; else cur.avatar = avatar; assignments[tableId] = list.length? list : undefined; saveToServer(); renderAll();
-      });
-      return;
-    } else {
-      // rename
-      if (typeof item === 'string') list[idx] = val; else item.name = val;
-    }
-    assignments[tableId] = list.length? list : undefined; saveToServer(); renderAll();
+    const person = (typeof item === 'string')? { name: item, info: '' } : JSON.parse(JSON.stringify(item || { name: '' }));
+    if (!isAdmin()){ alert(person.name + '\n\nPrzy ' + tableId + ' siedzą:\n' + ((list||[]).map(it=> typeof it === 'string'? it : (it && it.name)).join('\n')||'Pusty stolik')); return; }
+    // build modal to edit name, info and avatar
+    const modal = document.createElement('div'); Object.assign(modal.style,{ position:'fixed', left:0, top:0, right:0, bottom:0, background:'rgba(0,0,0,0.6)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:21000 });
+    const box = document.createElement('div'); Object.assign(box.style,{ background:'#fff', padding:'14px', borderRadius:'10px', minWidth:'320px', maxWidth:'520px' });
+    const title = document.createElement('div'); title.textContent = 'Edycja osoby'; title.style.fontWeight='700'; title.style.marginBottom='8px';
+    const nameInput = document.createElement('input'); nameInput.value = person.name || ''; Object.assign(nameInput.style,{ width:'100%', padding:'8px', marginBottom:'8px' });
+    const infoInput = document.createElement('textarea'); infoInput.placeholder='Informacje o osobie (np. dieta, rola)'; infoInput.value = person.info || ''; Object.assign(infoInput.style,{ width:'100%', padding:'8px', minHeight:'80px', boxSizing:'border-box', marginBottom:'8px' });
+    const imgWrap = document.createElement('div'); Object.assign(imgWrap.style,{ width:'120px', height:'120px', margin:'0 auto 8px', borderRadius:'8px', overflow:'hidden', background:'#f3f3f3', display:'flex',alignItems:'center',justifyContent:'center' });
+    const img = document.createElement('img'); img.style.width='100%'; img.style.height='100%'; img.style.objectFit='cover'; if (person.avatar && (person.avatar.url||person.avatar.key)) img.src = (person.avatar.url||person.avatar.key);
+    if (person.avatar) imgWrap.appendChild(img); else { const initials = (person.name||'').split(' ').map(s=>s[0]||'').slice(0,2).join('').toUpperCase()||'G'; const sp = document.createElement('div'); sp.textContent=initials; sp.style.fontSize='48px'; sp.style.fontWeight='700'; imgWrap.appendChild(sp); }
+    const changeAvatarBtn = document.createElement('button'); changeAvatarBtn.textContent='Zmień awatar'; changeAvatarBtn.className='btn-outline'; changeAvatarBtn.style.display='block'; changeAvatarBtn.style.margin='8px auto'; changeAvatarBtn.addEventListener('click', async ()=>{ const f = await pickAndUploadAvatar(); if (f){ person.avatar = f; img.src = f.url || f.key || ''; if (!img.parentNode) imgWrap.appendChild(img); } });
+    const btnRow = document.createElement('div'); Object.assign(btnRow.style,{ display:'flex', gap:'8px', justifyContent:'flex-end', marginTop:'8px' });
+    const cancel = document.createElement('button'); cancel.textContent='Anuluj'; cancel.className='btn-outline'; cancel.addEventListener('click', ()=> modal.remove());
+    const del = document.createElement('button'); del.textContent='Usuń'; del.className='btn-outline'; del.style.background='#c0392b'; del.style.color='#fff'; del.addEventListener('click', ()=>{ if (confirm('Usunąć osobę?')){ list.splice(idx,1); assignments[tableId] = list.length? list : undefined; pushHistory(); saveToServer(); renderAll(); modal.remove(); } });
+    const save = document.createElement('button'); save.textContent='Zapisz'; save.className='btn-outline'; save.style.background='var(--green)'; save.style.color='#fff'; save.addEventListener('click', ()=>{ const nm = (nameInput.value||'').trim(); if (!nm){ alert('Podaj imię'); return; } const newObj = { name: nm, info: (infoInput.value||'').trim() }; if (person.avatar) newObj.avatar = person.avatar; list[idx] = newObj; assignments[tableId] = list.length? list : undefined; pushHistory(); saveToServer(); renderAll(); modal.remove(); });
+    btnRow.appendChild(del); btnRow.appendChild(cancel); btnRow.appendChild(save);
+    box.appendChild(title); box.appendChild(imgWrap); box.appendChild(changeAvatarBtn); box.appendChild(nameInput); box.appendChild(infoInput); box.appendChild(btnRow); modal.appendChild(box); document.body.appendChild(modal);
   }
 
   // selection toolbar
@@ -190,24 +189,47 @@
   function showToolbarFor(el, index){
     removeToolbar();
     toolbar = document.createElement('div'); toolbar.id = 'tableToolbar';
-    Object.assign(toolbar.style, { position:'absolute', zIndex:10000, background:'#fff', border:'1px solid #ddd', padding:'6px', borderRadius:'8px', display:'flex', gap:'6px' });
-    const inc = createBtn('+', 'Powieksz', ()=> changeSize(index, 1.1));
+    Object.assign(toolbar.style, { position:'absolute', zIndex:10000, background:'#fff', border:'1px solid #ddd', padding:'6px', borderRadius:'8px', display:'flex', gap:'6px', alignItems:'center' });
+    const inc = createBtn('+', 'Powiększ', ()=> changeSize(index, 1.1));
     const dec = createBtn('-', 'Zmniejsz', ()=> changeSize(index, 0.9));
+    const undoBtn = createBtn('↶', 'Cofnij', ()=>{ undo(); });
+    const redoBtn = createBtn('↷', 'Ponów', ()=>{ redo(); });
     const addP = createBtn('＋ Os.', 'Dodaj osobę', ()=> addPersonToTable(index));
     const rename = createBtn('✎N', 'Zmień nazwę stolika', ()=> renameTable(index));
-    const shape = createBtn('🔄', 'Zmień kształt', ()=> toggleShape(index));
+    const shape = createBtn('🔄', 'Zmień kształt', ()=> { toggleShape(index); refreshToolbarSize(); });
     const dup = createBtn('⧉', 'Powiel', ()=> duplicateTable(index));
     const edit = createBtn('✎', 'Edytuj osoby (lista)', ()=> editTable('t'+(index+1)));
     const del = createBtn('🗑', 'Usuń', ()=>{ if(confirm('Usunąć stolik?')){ deleteTable(index); } });
-    const undoBtn = createBtn('↶', 'Cofnij', ()=>{ undo(); });
-    const redoBtn = createBtn('↷', 'Ponów', ()=>{ redo(); });
     const snapBtn = createBtn('🔲', 'Snap: off', ()=>{ snapToGrid = !snapToGrid; snapBtn.textContent = snapToGrid? '🔲 On':'🔲 Off'; });
+
+    const sizeReadout = document.createElement('div'); sizeReadout.id = 'tableSizeReadout'; sizeReadout.style.display='flex'; sizeReadout.style.alignItems='center'; sizeReadout.style.padding='0 6px'; sizeReadout.style.fontSize='13px';
+
     toolbar.appendChild(undoBtn); toolbar.appendChild(redoBtn);
-    toolbar.appendChild(inc); toolbar.appendChild(dec); toolbar.appendChild(addP); toolbar.appendChild(rename);
+    toolbar.appendChild(inc); toolbar.appendChild(dec); toolbar.appendChild(sizeReadout); toolbar.appendChild(addP); toolbar.appendChild(rename);
     toolbar.appendChild(shape); toolbar.appendChild(dup); toolbar.appendChild(edit); toolbar.appendChild(del); toolbar.appendChild(snapBtn);
     document.body.appendChild(toolbar);
     // position near element
     const r = el.getBoundingClientRect(); toolbar.style.left = (r.right + 10) + 'px'; toolbar.style.top = (r.top) + 'px';
+
+    function refreshToolbarSize(){ try{ const p = positions[index] || {}; if (p.shape === 'rect'){ sizeReadout.textContent = `W×H: ${p.w||28}% × ${p.h||16}%`; } else { sizeReadout.textContent = `Rozmiar: ${p.size||14}%`; } }catch(e){}
+    }
+
+    sizeReadout.addEventListener('click', (e)=>{
+      e.stopPropagation(); const p = positions[index] || {}; const editor = document.createElement('div'); Object.assign(editor.style, { display:'flex', gap:'6px', alignItems:'center' });
+      if (p.shape === 'rect'){
+        const wIn = document.createElement('input'); wIn.type='number'; wIn.min=6; wIn.max=80; wIn.value = p.w||28; wIn.style.width='60px';
+        const hIn = document.createElement('input'); hIn.type='number'; hIn.min=6; hIn.max=60; hIn.value = p.h||16; hIn.style.width='60px';
+        const ok = document.createElement('button'); ok.textContent='OK'; ok.className='btn-outline'; ok.addEventListener('click', ()=>{ p.w = Number(wIn.value); p.h = Number(hIn.value); positions[index]=p; pushHistory(); saveToServer(); renderAll(); removeToolbar(); });
+        editor.appendChild(wIn); editor.appendChild(hIn); editor.appendChild(ok);
+      } else {
+        const sIn = document.createElement('input'); sIn.type='range'; sIn.min=6; sIn.max=50; sIn.value = p.size||14; sIn.addEventListener('input', ()=>{ sizeReadout.textContent = `Rozmiar: ${sIn.value}%`; });
+        const ok = document.createElement('button'); ok.textContent='OK'; ok.className='btn-outline'; ok.addEventListener('click', ()=>{ p.size = Number(sIn.value); positions[index]=p; pushHistory(); saveToServer(); renderAll(); removeToolbar(); });
+        editor.appendChild(sIn); editor.appendChild(ok);
+      }
+      sizeReadout.textContent=''; sizeReadout.appendChild(editor);
+    });
+
+    refreshToolbarSize();
   }
 
   function createBtn(text, title, onClick){ const b = document.createElement('button'); b.textContent = text; b.title = title; b.className='btn-outline'; b.addEventListener('click',(e)=>{ e.stopPropagation(); onClick(); removeToolbar(); }); return b; }
@@ -232,6 +254,7 @@
     const box = document.createElement('div'); Object.assign(box.style,{ background:'#fff', padding:'14px', borderRadius:'10px', minWidth:'320px', boxShadow:'0 6px 30px rgba(0,0,0,0.2)' });
     const title = document.createElement('div'); title.textContent = 'Dodaj osobę'; title.style.fontWeight='700'; title.style.marginBottom='8px';
     const nameInput = document.createElement('input'); nameInput.placeholder='Imię i nazwisko'; Object.assign(nameInput.style,{ width:'100%', padding:'8px', marginBottom:'8px', boxSizing:'border-box' });
+    const infoInput = document.createElement('textarea'); infoInput.placeholder='Informacje o osobie (np. dieta, rola)'; Object.assign(infoInput.style,{ width:'100%', padding:'8px', minHeight:'80px', boxSizing:'border-box', marginBottom:'8px' });
     const fileInput = document.createElement('input'); fileInput.type='file'; fileInput.accept='image/*'; fileInput.style.marginBottom='8px';
     const preview = document.createElement('div'); preview.style.marginBottom='8px';
     fileInput.addEventListener('change', ()=>{ const f = fileInput.files && fileInput.files[0]; if (!f){ preview.innerHTML=''; return; } const img = document.createElement('img'); img.src = URL.createObjectURL(f); img.style.maxWidth='120px'; img.style.maxHeight='120px'; img.style.borderRadius='8px'; preview.innerHTML=''; preview.appendChild(img); });
@@ -240,17 +263,18 @@
     const save = document.createElement('button'); save.textContent='Zapisz'; save.className='btn-outline'; save.style.background='var(--green)'; save.style.color='#fff';
     save.addEventListener('click', async ()=>{
       const name = (nameInput.value||'').trim(); if (!name){ alert('Podaj imię'); return; }
+      const info = (infoInput.value||'').trim();
       assignments[key] = assignments[key] || [];
       const f = fileInput.files && fileInput.files[0];
       if (f){
-        const avatar = await uploadFile(f); if (avatar) assignments[key].push({ name, avatar }); else assignments[key].push({ name });
+        const avatar = await uploadFile(f); if (avatar) assignments[key].push({ name, info, avatar }); else assignments[key].push({ name, info });
       } else {
-        assignments[key].push(name);
+        assignments[key].push({ name, info });
       }
       pushHistory(); saveToServer(); renderAll(); modal.remove();
     });
     btnRow.appendChild(cancel); btnRow.appendChild(save);
-    box.appendChild(title); box.appendChild(nameInput); box.appendChild(fileInput); box.appendChild(preview); box.appendChild(btnRow); modal.appendChild(box); document.body.appendChild(modal);
+    box.appendChild(title); box.appendChild(nameInput); box.appendChild(infoInput); box.appendChild(fileInput); box.appendChild(preview); box.appendChild(btnRow); modal.appendChild(box); document.body.appendChild(modal);
   }
 
   function renameTable(index){
