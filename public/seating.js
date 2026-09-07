@@ -227,20 +227,30 @@
   function addPersonToTable(index){
     const key = 't'+(index+1);
     if (!isAdmin()){ alert('Tylko admin może dodać osobę.'); return; }
-    const name = prompt('Wpisz imię i nazwisko nowej osoby:');
-    if (!name) return;
-    assignments[key] = assignments[key] || [];
-    const trimmed = name.trim();
-    // ask for avatar
-    if (confirm('Czy dodać avatar dla tej osoby?')){
-      pickAndUploadAvatar().then(avatar => {
-        if (avatar) assignments[key].push({ name: trimmed, avatar }); else assignments[key].push(trimmed);
-        pushHistory(); saveToServer(); renderAll();
-      });
-    } else {
-      assignments[key].push(trimmed);
-      pushHistory(); saveToServer(); renderAll();
-    }
+    // create modal form for name + optional avatar
+    const modal = document.createElement('div'); Object.assign(modal.style,{ position:'fixed', left:0, top:0, right:0, bottom:0, background:'rgba(0,0,0,0.4)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:20000 });
+    const box = document.createElement('div'); Object.assign(box.style,{ background:'#fff', padding:'14px', borderRadius:'10px', minWidth:'320px', boxShadow:'0 6px 30px rgba(0,0,0,0.2)' });
+    const title = document.createElement('div'); title.textContent = 'Dodaj osobę'; title.style.fontWeight='700'; title.style.marginBottom='8px';
+    const nameInput = document.createElement('input'); nameInput.placeholder='Imię i nazwisko'; Object.assign(nameInput.style,{ width:'100%', padding:'8px', marginBottom:'8px', boxSizing:'border-box' });
+    const fileInput = document.createElement('input'); fileInput.type='file'; fileInput.accept='image/*'; fileInput.style.marginBottom='8px';
+    const preview = document.createElement('div'); preview.style.marginBottom='8px';
+    fileInput.addEventListener('change', ()=>{ const f = fileInput.files && fileInput.files[0]; if (!f){ preview.innerHTML=''; return; } const img = document.createElement('img'); img.src = URL.createObjectURL(f); img.style.maxWidth='120px'; img.style.maxHeight='120px'; img.style.borderRadius='8px'; preview.innerHTML=''; preview.appendChild(img); });
+    const btnRow = document.createElement('div'); btnRow.style.display='flex'; btnRow.style.gap='8px'; btnRow.style.justifyContent='flex-end';
+    const cancel = document.createElement('button'); cancel.textContent='Anuluj'; cancel.className='btn-outline'; cancel.addEventListener('click', ()=> modal.remove());
+    const save = document.createElement('button'); save.textContent='Zapisz'; save.className='btn-outline'; save.style.background='var(--green)'; save.style.color='#fff';
+    save.addEventListener('click', async ()=>{
+      const name = (nameInput.value||'').trim(); if (!name){ alert('Podaj imię'); return; }
+      assignments[key] = assignments[key] || [];
+      const f = fileInput.files && fileInput.files[0];
+      if (f){
+        const avatar = await uploadFile(f); if (avatar) assignments[key].push({ name, avatar }); else assignments[key].push({ name });
+      } else {
+        assignments[key].push(name);
+      }
+      pushHistory(); saveToServer(); renderAll(); modal.remove();
+    });
+    btnRow.appendChild(cancel); btnRow.appendChild(save);
+    box.appendChild(title); box.appendChild(nameInput); box.appendChild(fileInput); box.appendChild(preview); box.appendChild(btnRow); modal.appendChild(box); document.body.appendChild(modal);
   }
 
   function renameTable(index){
@@ -270,17 +280,24 @@
       inp.addEventListener('change', async ()=>{
         const f = inp.files && inp.files[0]; if (!f){ document.body.removeChild(inp); resolve(null); return; }
         try{
-          const fd = new FormData(); fd.append('file', f, f.name);
-          const res = await fetch(API_BASE + '/api/upload', { method:'POST', body: fd });
-          if (!res.ok) throw new Error('upload failed');
-          const j = await res.json(); const first = (j && j.files && j.files[0]) || j;
-          const avatar = first && (first.url || first.key) ? { key: first.key, url: first.url || first.key } : null;
+          const avatar = await uploadFile(f);
           document.body.removeChild(inp);
           resolve(avatar);
         }catch(e){ console.error('avatar upload failed', e); document.body.removeChild(inp); resolve(null); }
       });
       inp.click();
     });
+  }
+
+  // upload a File object to /api/upload and return { key, url } or null
+  async function uploadFile(file){
+    try{
+      const fd = new FormData(); fd.append('file', file, file.name);
+      const res = await fetch(API_BASE + '/api/upload', { method:'POST', body: fd });
+      if (!res.ok) throw new Error('upload failed');
+      const j = await res.json(); const first = (j && j.files && j.files[0]) || j;
+      return first && (first.url || first.key) ? { key: first.key, url: first.url || first.key } : null;
+    }catch(e){ console.error('uploadFile failed', e); return null; }
   }
 
   // Dragging
