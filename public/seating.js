@@ -159,7 +159,7 @@
       const label = document.createElement('div'); label.className = 'person-label'; label.textContent = name; label.style.display='none';
       person.addEventListener('mouseenter', ()=> label.style.display = 'block');
       person.addEventListener('mouseleave', ()=> label.style.display = 'none');
-      person.addEventListener('click', (ev)=>{ ev.stopPropagation(); onPersonClick(tableId, i); });
+      person.addEventListener('click', (ev)=>{ if (ev.currentTarget && ev.currentTarget._justTapped){ ev.currentTarget._justTapped = false; ev.stopPropagation(); return; } ev.stopPropagation(); onPersonClick(tableId, i); });
       // make avatar draggable for admins (supports moving between tables and reposition inside same table)
       makePersonDraggable(person, tableId, i);
       tableEl.appendChild(person); tableEl.appendChild(label);
@@ -188,8 +188,8 @@
         try{ el.releasePointerCapture && el.releasePointerCapture(ev.pointerId); }catch(_){ }
         document.removeEventListener('pointermove', onMove); document.removeEventListener('pointerup', onUp);
         if (!dragging){ // treat as click
-          // allow click handler to run naturally
-          // but also support immediate edit if click handler prevented; call onPersonClick explicitly
+          // prevent duplicate click handler firing (pointerup + click) by marking element
+          try{ el._justTapped = true; setTimeout(()=>{ try{ el._justTapped = false; }catch(_){ } }, 300); }catch(_){ }
           try{ onPersonClick(tableId, idx); }catch(_){ }
           return;
         }
