@@ -296,9 +296,14 @@
 
     const sizeReadout = document.createElement('div'); sizeReadout.id = 'tableSizeReadout'; sizeReadout.style.display='flex'; sizeReadout.style.alignItems='center'; sizeReadout.style.padding='0 6px'; sizeReadout.style.fontSize='13px';
 
-    toolbar.appendChild(undoBtn); toolbar.appendChild(redoBtn);
-    toolbar.appendChild(inc); toolbar.appendChild(dec); toolbar.appendChild(sizeReadout); toolbar.appendChild(addP); toolbar.appendChild(rename);
-    toolbar.appendChild(shape); toolbar.appendChild(setRect); toolbar.appendChild(setCircle); toolbar.appendChild(dup); toolbar.appendChild(edit); toolbar.appendChild(del); toolbar.appendChild(snapBtn);
+    if (isAdmin()){
+      toolbar.appendChild(undoBtn); toolbar.appendChild(redoBtn);
+      toolbar.appendChild(inc); toolbar.appendChild(dec); toolbar.appendChild(sizeReadout); toolbar.appendChild(addP); toolbar.appendChild(rename);
+      toolbar.appendChild(shape); toolbar.appendChild(setRect); toolbar.appendChild(setCircle); toolbar.appendChild(dup); toolbar.appendChild(edit); toolbar.appendChild(del); toolbar.appendChild(snapBtn);
+    } else {
+      // non-admins see only the size/readout
+      toolbar.appendChild(sizeReadout);
+    }
     document.body.appendChild(toolbar);
     // position near element
     const r = el.getBoundingClientRect(); toolbar.style.left = (r.right + 10) + 'px'; toolbar.style.top = (r.top) + 'px';
@@ -515,12 +520,19 @@
   function drawAllStrokes(){ if (!canvas) return; ctx.clearRect(0,0,canvas.width,canvas.height); for(const s of drawings){ ctx.strokeStyle = s.color||'#000'; ctx.lineWidth = s.width||3; ctx.beginPath(); for(let i=0;i<s.points.length;i++){ const [x,y] = s.points[i]; if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y); } ctx.stroke(); } }
 
   // ADMIN: add table button
-  function ensureAddButton(){ if (document.getElementById('addTableBtn')) return; const btn = document.createElement('button'); btn.id='addTableBtn'; btn.className='btn-outline'; btn.textContent='Dodaj stolik'; btn.addEventListener('click', ()=>{ if (!isAdmin()){ alert('Tylko admin może dodawać stoliki.'); return; } addTable(); }); controls.appendChild(btn); }
+  function ensureAddButton(){ // create add button only for admins; login flow calls this after auth
+    if (document.getElementById('addTableBtn')) return;
+    if (!isAdmin()) return;
+    const btn = document.createElement('button'); btn.id='addTableBtn'; btn.className='btn-outline'; btn.textContent='Dodaj stolik'; btn.addEventListener('click', ()=>{ if (!isAdmin()){ alert('Tylko admin może dodawać stoliki.'); return; } addTable(); }); controls.appendChild(btn);
+  }
   function addTable(){ positions.push({ x:50, y:50, size:12, shape:'circle' }); saveToServer(); renderAll(); }
 
   // Admin quick-login control (for convenience)
   function ensureAdminControl(){ if (document.getElementById('adminToggle')) return; const a = document.createElement('button'); a.id='adminToggle'; a.className='btn-outline'; a.style.marginLeft='6px';
-    function update(){ if (isAdmin()){ a.textContent = 'Wyloguj admin'; a.title='Wyloguj'; } else { a.textContent = 'Zaloguj admin'; a.title='Zaloguj jako admin (emilka)'; } }
+    function update(){ if (isAdmin()){ a.textContent = 'Wyloguj admin'; a.title='Wyloguj'; } else { a.textContent = 'Zaloguj admin'; a.title='Zaloguj jako admin (emilka)'; }
+      // remove admin-only buttons when not admin
+      if (!isAdmin()){ const addBtn = document.getElementById('addTableBtn'); if (addBtn && addBtn.parentNode) addBtn.parentNode.removeChild(addBtn); const editBtn = document.getElementById('editModeBtn'); if (editBtn && editBtn.parentNode) editBtn.parentNode.removeChild(editBtn); }
+    }
     a.addEventListener('click', ()=>{
       if (isAdmin()){ localStorage.removeItem('adminToken'); update(); renderAll(); return; }
       const user = prompt('Login:', 'emilka'); if (user === null) return; const pass = prompt('Hasło:', 'adas'); if (pass === null) return;
@@ -531,6 +543,8 @@
 
   // Edit mode toggle (tables <-> people)
   function ensureEditModeButton(){ if (document.getElementById('editModeBtn')) return; const b = document.createElement('button'); b.id='editModeBtn'; b.className='btn-outline'; b.style.marginLeft='6px';
+    // only create when admin
+    if (!isAdmin()) return;
     function update(){ b.textContent = (editMode === 'tables')? 'Edytuj: Stoły' : 'Edytuj: Osoby'; }
     b.addEventListener('click', ()=>{ editMode = (editMode === 'tables')? 'people' : 'tables'; update(); renderAll(); });
     controls.appendChild(b); update(); }
