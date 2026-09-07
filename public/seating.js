@@ -169,37 +169,47 @@
   function makePersonDraggable(el, tableId, idx){
     if (!el) return;
     el.style.touchAction = 'none';
-    let dragging = false; let ghost = null; let startX=0,startY=0; let origXY=null;
+    let dragging = false; let ghost = null; let startX=0,startY=0;
+    function cleanup(){ if (ghost && ghost.parentNode) ghost.parentNode.removeChild(ghost); ghost=null; dragging=false; }
     el.addEventListener('pointerdown', (ev)=>{
-      if (!isAdmin()) return; ev.preventDefault(); ev.stopPropagation(); dragging = true; startX = ev.clientX; startY = ev.clientY; el.setPointerCapture && el.setPointerCapture(ev.pointerId);
-      ghost = el.cloneNode(true); ghost.style.position='fixed'; ghost.style.left = (ev.clientX - 18) + 'px'; ghost.style.top = (ev.clientY - 18) + 'px'; ghost.style.pointerEvents='none'; ghost.style.opacity='0.9'; ghost.style.zIndex = 20000; document.body.appendChild(ghost);
-      el.style.opacity = '0.4';
-      const onMove = (e)=>{ if (!dragging) return; ghost.style.left = (e.clientX - 18) + 'px'; ghost.style.top = (e.clientY - 18) + 'px'; };
-      const onUp = (e)=>{ if (!dragging) return; dragging = false; el.style.opacity = '1'; try{ el.releasePointerCapture && el.releasePointerCapture(ev.pointerId); }catch(_){ }
-        // detect drop target
+      if (!isAdmin()) return; startX = ev.clientX; startY = ev.clientY; el.setPointerCapture && el.setPointerCapture(ev.pointerId);
+      let moved = false;
+      const onMove = (e)=>{
+        const dx = e.clientX - startX; const dy = e.clientY - startY;
+        if (!dragging && Math.hypot(dx,dy) > 6){
+          // start dragging
+          dragging = true; moved = true;
+          ghost = el.cloneNode(true); ghost.style.position='fixed'; ghost.style.left = (e.clientX - 18) + 'px'; ghost.style.top = (e.clientY - 18) + 'px'; ghost.style.pointerEvents='none'; ghost.style.opacity='0.9'; ghost.style.zIndex = 20000; document.body.appendChild(ghost);
+          el.style.opacity = '0.4';
+        }
+        if (dragging && ghost){ ghost.style.left = (e.clientX - 18) + 'px'; ghost.style.top = (e.clientY - 18) + 'px'; }
+      };
+      const onUp = (e)=>{
+        try{ el.releasePointerCapture && el.releasePointerCapture(ev.pointerId); }catch(_){ }
+        document.removeEventListener('pointermove', onMove); document.removeEventListener('pointerup', onUp);
+        if (!dragging){ // treat as click
+          // allow click handler to run naturally
+          // but also support immediate edit if click handler prevented; call onPersonClick explicitly
+          try{ onPersonClick(tableId, idx); }catch(_){ }
+          return;
+        }
+        // was dragging: handle drop
+        el.style.opacity = '1';
         const dropEl = document.elementFromPoint(e.clientX, e.clientY);
         const targetTable = dropEl && dropEl.closest && dropEl.closest('.table');
         if (targetTable){ const toId = targetTable.id; if (toId && toId !== tableId){ // move person to other table
             const fromArr = assignments[tableId] || []; const item = fromArr[idx]; if (!item) { cleanup(); return; }
-            // remove from original (may need to find by reference if indexes changed)
-            // find first matching by name or by index
             let removed = null;
             for(let i=0;i<fromArr.length;i++){ if (i===idx){ removed = fromArr.splice(i,1)[0]; break; } }
-            if (!removed){ // fallback: try remove by name
-              for(let i=0;i<fromArr.length;i++){ const it = fromArr[i]; const name = typeof it==='string'? it : (it && it.name); const orig = typeof item==='string'? item : (item && item.name); if (name === orig){ removed = fromArr.splice(i,1)[0]; break; } }
-            }
+            if (!removed){ for(let i=0;i<fromArr.length;i++){ const it = fromArr[i]; const name = typeof it==='string'? it : (it && it.name); const orig = typeof item==='string'? item : (item && item.name); if (name === orig){ removed = fromArr.splice(i,1)[0]; break; } } }
             if (fromArr.length) assignments[tableId] = fromArr; else delete assignments[tableId];
             assignments[toId] = assignments[toId] || [];
-            // clear pos when moved to new table so it will be auto-arranged
             if (removed && removed.pos) delete removed.pos;
             assignments[toId].push(removed);
             pushHistory(); saveToServer(); renderAll();
-          }
-          else if (toId === tableId){
-            // reposition inside same table: compute position relative to table element
+          } else if (toId === tableId){
             const tRect = targetTable.getBoundingClientRect(); const relX = ((e.clientX - tRect.left) / tRect.width) * 100; const relY = ((e.clientY - tRect.top) / tRect.height) * 100;
             const fromArr = assignments[tableId] || []; const item = fromArr[idx]; if (!item) { cleanup(); return; }
-            // ensure object
             const obj = (typeof item === 'string')? { name: item } : item;
             obj.pos = { x: Math.max(2, Math.min(98, relX)), y: Math.max(2, Math.min(98, relY)) };
             fromArr[idx] = obj; assignments[tableId] = fromArr;
@@ -208,7 +218,6 @@
         }
         cleanup();
       };
-      const cleanup = ()=>{ try{ document.removeEventListener('pointermove', onMove); document.removeEventListener('pointerup', onUp); }catch(_){ } if (ghost && ghost.parentNode) ghost.parentNode.removeChild(ghost); ghost=null; };
       document.addEventListener('pointermove', onMove); document.addEventListener('pointerup', onUp);
     });
   }
