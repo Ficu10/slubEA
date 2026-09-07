@@ -24,7 +24,7 @@ module.exports = async function (req, res) {
     if (req.method === 'GET') {
       // try read from R2
       try{
-        const cmd = new GetObjectCommand({ Bucket: BUCKET, Key });
+        const cmd = new GetObjectCommand({ Bucket: BUCKET, Key: KEY });
         const out = await s3.send(cmd);
         const stream = out.Body;
         const chunks = [];
@@ -60,7 +60,7 @@ module.exports = async function (req, res) {
         let data=''; req.on('data',c=>data+=c); req.on('end',()=>r(JSON.parse(data||'{}')));
       }));
       const body = JSON.stringify(payload, null, 2);
-      const cmd = new PutObjectCommand({ Bucket: BUCKET, Key, Body: body, ContentType: 'application/json' });
+      const cmd = new PutObjectCommand({ Bucket: BUCKET, Key: KEY, Body: body, ContentType: 'application/json' });
       await s3.send(cmd);
       return res.status(200).json({ success:true });
     }
