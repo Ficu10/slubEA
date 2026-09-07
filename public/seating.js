@@ -96,18 +96,15 @@
     el.style.display = 'flex'; el.style.alignItems = 'center'; el.style.justifyContent = 'center';
     el.style.boxSizing = 'border-box';
     el.style.border = '3px solid var(--green)';
-    // label
-    const lbl = document.createElement('div'); lbl.className = 'num'; lbl.style.pointerEvents='none'; lbl.textContent = p.label || (index+1);
-    const namesDiv = document.createElement('div'); namesDiv.className = 'names'; namesDiv.style.pointerEvents='none';
-    const names = (assignments['t'+(index+1)] || []).slice(0,6).map(it=> typeof it === 'string'? it : (it && it.name));
-    namesDiv.textContent = names.join('\n') || 'Pusty stolik';
-    el.appendChild(lbl); el.appendChild(namesDiv);
+    // center label (table name) displayed inside table
+    const centerLabel = document.createElement('div'); centerLabel.className = 'table-center-label'; centerLabel.style.pointerEvents='none'; centerLabel.style.position='absolute'; centerLabel.style.left='50%'; centerLabel.style.top='50%'; centerLabel.style.transform='translate(-50%,-50%)'; centerLabel.style.textAlign='center'; centerLabel.style.fontWeight='700'; centerLabel.style.color='var(--panel-text)'; centerLabel.style.zIndex='5'; centerLabel.style.userSelect='none'; centerLabel.textContent = p.label || '';
+    el.appendChild(centerLabel);
 
     // person icons
     renderPeople(el, 't'+(index+1));
 
     // events
-    el.addEventListener('click', (e)=>{ if (e.defaultPrevented) return; if (editMode === 'tables') selectTable(index, el); else editTable(id); });
+    el.addEventListener('click', (e)=>{ if (e.defaultPrevented) return; if (editMode === 'tables') showTableEditModal(index); else editTable(id); });
 
     // drag
     makeDraggable(el, index);
@@ -344,6 +341,50 @@
     p.label = label.trim() || undefined;
     positions[index] = p;
     pushHistory(); saveToServer(); renderAll();
+  }
+
+  // modal to edit table properties
+  function showTableEditModal(index){
+    if (!isAdmin()){ alert('Tylko admin może edytować stolik.'); return; }
+    const p = positions[index] || {};
+    const modal = document.createElement('div'); Object.assign(modal.style,{ position:'fixed', left:0, top:0, right:0, bottom:0, background:'rgba(0,0,0,0.6)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:21000 });
+    const box = document.createElement('div'); Object.assign(box.style,{ background:'#fff', padding:'14px', borderRadius:'10px', minWidth:'360px', maxWidth:'520px' });
+    const title = document.createElement('div'); title.textContent = 'Edycja stolika'; title.style.fontWeight='700'; title.style.marginBottom='8px';
+    const nameInput = document.createElement('input'); nameInput.placeholder='Nazwa stolika'; nameInput.value = p.label || ''; Object.assign(nameInput.style,{ width:'100%', padding:'8px', marginBottom:'8px', boxSizing:'border-box' });
+    // shape selector
+    const shapeRow = document.createElement('div'); shapeRow.style.display='flex'; shapeRow.style.gap='8px'; shapeRow.style.marginBottom='8px';
+    const circBtn = document.createElement('button'); circBtn.textContent='Kółko'; circBtn.className='btn-outline'; circBtn.addEventListener('click', ()=>{ p.shape='circle'; refreshSizeControls(); previewShape(); });
+    const rectBtn = document.createElement('button'); rectBtn.textContent='Prostokąt'; rectBtn.className='btn-outline'; rectBtn.addEventListener('click', ()=>{ p.shape='rect'; refreshSizeControls(); previewShape(); });
+    shapeRow.appendChild(circBtn); shapeRow.appendChild(rectBtn);
+    // size controls
+    const sizeWrap = document.createElement('div'); sizeWrap.style.display='flex'; sizeWrap.style.gap='8px'; sizeWrap.style.alignItems='center'; sizeWrap.style.marginBottom='8px';
+    const sizeLabel = document.createElement('div'); sizeLabel.textContent = 'Rozmiar:'; sizeLabel.style.minWidth='60px';
+    const sizeInput = document.createElement('input'); sizeInput.type='number'; sizeInput.min=6; sizeInput.max=80; sizeInput.value = p.shape==='rect'? (p.w||28) : (p.size||14);
+    const sizeInput2 = document.createElement('input'); sizeInput2.type='number'; sizeInput2.min=6; sizeInput2.max=60; sizeInput2.value = p.shape==='rect'? (p.h||16) : (p.size||14); sizeInput2.style.display = p.shape==='rect'? 'inline-block':'none';
+    sizeInput.style.width='80px'; sizeInput2.style.width='80px';
+    sizeWrap.appendChild(sizeLabel); sizeWrap.appendChild(sizeInput); sizeWrap.appendChild(sizeInput2);
+    function refreshSizeControls(){ if (p.shape==='rect'){ sizeInput.value = p.w||28; sizeInput2.style.display='inline-block'; sizeInput2.value = p.h||16; } else { sizeInput.value = p.size||14; sizeInput2.style.display='none'; } }
+    // preview box
+    const preview = document.createElement('div'); Object.assign(preview.style,{ width:'160px', height:'120px', margin:'8px auto', display:'flex', alignItems:'center', justifyContent:'center', border:'1px dashed #ddd', borderRadius:'8px' });
+    const previewInner = document.createElement('div'); previewInner.style.display='flex'; previewInner.style.alignItems='center'; previewInner.style.justifyContent='center'; previewInner.style.background='var(--panel)'; previewInner.style.color='var(--panel-text)'; previewInner.style.fontWeight='700'; previewInner.textContent = nameInput.value || '';
+    preview.appendChild(previewInner);
+    function previewShape(){ if (p.shape==='rect'){ previewInner.style.width = (Number(sizeInput.value)||28)+'%'; previewInner.style.height = (Number(sizeInput2.value)||16)+'%'; previewInner.style.borderRadius='12px'; } else { const s = Number(sizeInput.value)||14; previewInner.style.width = s+'%'; previewInner.style.height = s+'%'; previewInner.style.borderRadius='50%'; } }
+    // delete button
+    const btnRow = document.createElement('div'); Object.assign(btnRow.style,{ display:'flex', gap:'8px', justifyContent:'flex-end', marginTop:'8px' });
+    const del = document.createElement('button'); del.textContent='Usuń stolik'; del.className='btn-outline'; del.style.background='#c0392b'; del.style.color='#fff'; del.addEventListener('click', ()=>{ if (confirm('Usunąć ten stolik?')){ deleteTable(index); modal.remove(); } });
+    const cancel = document.createElement('button'); cancel.textContent='Anuluj'; cancel.className='btn-outline'; cancel.addEventListener('click', ()=> modal.remove());
+    const save = document.createElement('button'); save.textContent='Zapisz'; save.className='btn-outline'; save.style.background='var(--green)'; save.style.color='#fff'; save.addEventListener('click', ()=>{
+      const name = (nameInput.value||'').trim(); if (name) p.label = name; else delete p.label;
+      if (p.shape==='rect'){ p.w = Math.max(6, Math.min(80, Number(sizeInput.value)||28)); p.h = Math.max(6, Math.min(60, Number(sizeInput2.value)||16)); delete p.size; } else { p.size = Math.max(6, Math.min(50, Number(sizeInput.value)||14)); delete p.w; delete p.h; }
+      positions[index] = p; pushHistory(); saveToServer(); renderAll(); modal.remove();
+    });
+    // live updates
+    nameInput.addEventListener('input', ()=> previewInner.textContent = nameInput.value);
+    sizeInput.addEventListener('input', previewShape); sizeInput2.addEventListener('input', previewShape);
+    // assemble
+    box.appendChild(title); box.appendChild(nameInput); box.appendChild(shapeRow); box.appendChild(sizeWrap); box.appendChild(preview); btnRow.appendChild(del); btnRow.appendChild(cancel); btnRow.appendChild(save); box.appendChild(btnRow); modal.appendChild(box); document.body.appendChild(modal);
+    // initialize
+    refreshSizeControls(); previewShape();
   }
 
   function deleteTable(index){ positions.splice(index,1);
