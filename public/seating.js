@@ -79,16 +79,28 @@
     el.className = 'table';
     el.dataset.index = index;
     el.id = id;
-    // size: use percentage width/height for responsiveness
-    if (p.shape === 'rect'){
-      el.classList.add('rect');
-      el.style.width = (p.w||28) + '%';
-      el.style.height = (p.h||16) + '%';
-      el.style.borderRadius = p.radius?'12px':'12px';
-    } else {
-      el.style.width = (p.size||14) + '%';
-      el.style.height = (p.size||14) + '%';
-      el.style.borderRadius = '50%';
+    // size: compute pixel sizes so circles remain perfect circles regardless of hall aspect ratio
+    try{
+      const hrect = hall.getBoundingClientRect();
+      if (p.shape === 'rect'){
+        el.classList.add('rect');
+        const wpx = ((p.w||28)/100) * hrect.width;
+        const hpx = ((p.h||16)/100) * hrect.height;
+        el.style.width = Math.round(wpx) + 'px';
+        el.style.height = Math.round(hpx) + 'px';
+        el.style.borderRadius = p.radius ? '12px' : '12px';
+      } else {
+        // use min dimension to compute a square size for true circle
+        const sizePct = (p.size||14)/100;
+        const base = Math.min(hrect.width, hrect.height);
+        const spx = Math.round(sizePct * base);
+        el.style.width = spx + 'px'; el.style.height = spx + 'px';
+        el.style.borderRadius = '50%';
+      }
+    }catch(e){
+      // fallback to percentage if measuring fails
+      if (p.shape === 'rect'){ el.classList.add('rect'); el.style.width = (p.w||28) + '%'; el.style.height = (p.h||16) + '%'; el.style.borderRadius = '12px'; }
+      else { el.style.width = (p.size||14) + '%'; el.style.height = (p.size||14) + '%'; el.style.borderRadius = '50%'; }
     }
     el.style.left = p.x + '%'; el.style.top = p.y + '%';
     el.style.position = 'absolute';
