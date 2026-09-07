@@ -104,7 +104,7 @@
     renderPeople(el, 't'+(index+1));
 
     // events
-    el.addEventListener('click', (e)=>{ if (e.defaultPrevented) return; if (editMode === 'tables') showTableEditModal(index); else editTable(id); });
+    el.addEventListener('click', (e)=>{ if (e.defaultPrevented) return; if (editMode === 'tables') showTableEditModal(index); else addPersonToTable(index); });
 
     // drag
     makeDraggable(el, index);
