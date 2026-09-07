@@ -147,7 +147,7 @@
       const label = document.createElement('div'); label.className = 'person-label'; label.textContent = name; label.style.display='none';
       person.addEventListener('mouseenter', ()=> label.style.display = 'block');
       person.addEventListener('mouseleave', ()=> label.style.display = 'none');
-      person.addEventListener('click', (ev)=>{ ev.stopPropagation(); if (editMode === 'people') onPersonClick(tableId, i); else { /* treat as table click */ selectTable(parseInt(tableId.replace('t',''),10)-1, document.getElementById(tableId)); } });
+      person.addEventListener('click', (ev)=>{ ev.stopPropagation(); onPersonClick(tableId, i); });
       // make avatar draggable for admins (supports moving between tables and reposition inside same table)
       makePersonDraggable(person, tableId, i);
       tableEl.appendChild(person); tableEl.appendChild(label);
