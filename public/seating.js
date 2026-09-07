@@ -144,8 +144,45 @@
       person.addEventListener('mouseenter', ()=> label.style.display = 'block');
       person.addEventListener('mouseleave', ()=> label.style.display = 'none');
       person.addEventListener('click', (ev)=>{ ev.stopPropagation(); if (editMode === 'people') onPersonClick(tableId, i); else { /* treat as table click */ selectTable(parseInt(tableId.replace('t',''),10)-1, document.getElementById(tableId)); } });
+      // make avatar draggable for admins
+      makePersonDraggable(person, tableId, i);
       tableEl.appendChild(person); tableEl.appendChild(label);
     }
+  }
+
+  function makePersonDraggable(el, tableId, idx){
+    if (!el) return;
+    el.style.touchAction = 'none';
+    let dragging = false; let ghost = null; let startX=0,startY=0; let origXY=null;
+    el.addEventListener('pointerdown', (ev)=>{
+      if (!isAdmin()) return; ev.preventDefault(); ev.stopPropagation(); dragging = true; startX = ev.clientX; startY = ev.clientY; el.setPointerCapture && el.setPointerCapture(ev.pointerId);
+      ghost = el.cloneNode(true); ghost.style.position='fixed'; ghost.style.left = (ev.clientX - 18) + 'px'; ghost.style.top = (ev.clientY - 18) + 'px'; ghost.style.pointerEvents='none'; ghost.style.opacity='0.9'; ghost.style.zIndex = 20000; document.body.appendChild(ghost);
+      el.style.opacity = '0.4';
+      const onMove = (e)=>{ if (!dragging) return; ghost.style.left = (e.clientX - 18) + 'px'; ghost.style.top = (e.clientY - 18) + 'px'; };
+      const onUp = (e)=>{ if (!dragging) return; dragging = false; el.style.opacity = '1'; try{ el.releasePointerCapture && el.releasePointerCapture(ev.pointerId); }catch(_){ }
+        // detect drop target
+        const dropEl = document.elementFromPoint(e.clientX, e.clientY);
+        const targetTable = dropEl && dropEl.closest && dropEl.closest('.table');
+        if (targetTable){ const toId = targetTable.id; if (toId && toId !== tableId){ // move person
+            const fromArr = assignments[tableId] || []; const item = fromArr[idx]; if (!item) { cleanup(); return; }
+            // remove from original (may need to find by reference if indexes changed)
+            // find first matching by name or by index
+            let removed = null;
+            for(let i=0;i<fromArr.length;i++){ if (i===idx){ removed = fromArr.splice(i,1)[0]; break; } }
+            if (!removed){ // fallback: try remove by name
+              for(let i=0;i<fromArr.length;i++){ const it = fromArr[i]; const name = typeof it==='string'? it : (it && it.name); const orig = typeof item==='string'? item : (item && item.name); if (name === orig){ removed = fromArr.splice(i,1)[0]; break; } }
+            }
+            if (fromArr.length) assignments[tableId] = fromArr; else delete assignments[tableId];
+            assignments[toId] = assignments[toId] || [];
+            assignments[toId].push(removed);
+            pushHistory(); saveToServer(); renderAll();
+          }
+        }
+        cleanup();
+      };
+      const cleanup = ()=>{ try{ document.removeEventListener('pointermove', onMove); document.removeEventListener('pointerup', onUp); }catch(_){ } if (ghost && ghost.parentNode) ghost.parentNode.removeChild(ghost); ghost=null; };
+      document.addEventListener('pointermove', onMove); document.addEventListener('pointerup', onUp);
+    });
   }
 
   function onPersonClick(tableId, idx){
@@ -198,6 +235,8 @@
     const addP = createBtn('＋ Os.', 'Dodaj osobę', ()=> addPersonToTable(index));
     const rename = createBtn('✎N', 'Zmień nazwę stolika', ()=> renameTable(index));
     const shape = createBtn('🔄', 'Zmień kształt', ()=> { toggleShape(index); refreshToolbarSize(); });
+    const setRect = createBtn('◻', 'Ustaw prostokąt', ()=>{ const p=positions[index]; if (!p) return; p.shape='rect'; p.w = p.w||28; p.h = p.h||16; pushHistory(); saveToServer(); renderAll(); });
+    const setCircle = createBtn('◯', 'Ustaw kółko', ()=>{ const p=positions[index]; if (!p) return; p.shape='circle'; p.size = p.size||14; pushHistory(); saveToServer(); renderAll(); });
     const dup = createBtn('⧉', 'Powiel', ()=> duplicateTable(index));
     const edit = createBtn('✎', 'Edytuj osoby (lista)', ()=> editTable('t'+(index+1)));
     const del = createBtn('🗑', 'Usuń', ()=>{ if(confirm('Usunąć stolik?')){ deleteTable(index); } });
@@ -207,7 +246,7 @@
 
     toolbar.appendChild(undoBtn); toolbar.appendChild(redoBtn);
     toolbar.appendChild(inc); toolbar.appendChild(dec); toolbar.appendChild(sizeReadout); toolbar.appendChild(addP); toolbar.appendChild(rename);
-    toolbar.appendChild(shape); toolbar.appendChild(dup); toolbar.appendChild(edit); toolbar.appendChild(del); toolbar.appendChild(snapBtn);
+    toolbar.appendChild(shape); toolbar.appendChild(setRect); toolbar.appendChild(setCircle); toolbar.appendChild(dup); toolbar.appendChild(edit); toolbar.appendChild(del); toolbar.appendChild(snapBtn);
     document.body.appendChild(toolbar);
     // position near element
     const r = el.getBoundingClientRect(); toolbar.style.left = (r.right + 10) + 'px'; toolbar.style.top = (r.top) + 'px';
