@@ -98,7 +98,7 @@
     // label
     const lbl = document.createElement('div'); lbl.className = 'num'; lbl.style.pointerEvents='none'; lbl.textContent = p.label || (index+1);
     const namesDiv = document.createElement('div'); namesDiv.className = 'names'; namesDiv.style.pointerEvents='none';
-    const names = (assignments['t'+(index+1)] || []).slice(0,6);
+    const names = (assignments['t'+(index+1)] || []).slice(0,6).map(it=> typeof it === 'string'? it : (it && it.name));
     namesDiv.textContent = names.join('\n') || 'Pusty stolik';
     el.appendChild(lbl); el.appendChild(namesDiv);
 
@@ -126,10 +126,19 @@
       const cx = 50 + Math.cos(angle) * distance;
       const cy = 50 + Math.sin(angle) * distance;
       const person = document.createElement('div'); person.className = 'person';
-      Object.assign(person.style, { position:'absolute', left:cx+'%', top:cy+'%', transform:'translate(-50%,-50%)', width:'26px', height:'26px', borderRadius:'50%', background:'#fff', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 1px 2px rgba(0,0,0,0.12)', cursor:'pointer', border:'1px solid rgba(0,0,0,0.06)'});
-      const name = arr[i] || '';
-      const initials = name.split(' ').map(s=>s[0]||'').slice(0,2).join('').toUpperCase() || 'G';
-      person.textContent = initials; person.title = name; person.dataset.idx = i; person.dataset.table = tableId;
+      Object.assign(person.style, { position:'absolute', left:cx+'%', top:cy+'%', transform:'translate(-50%,-50%)', width:'36px', height:'36px', borderRadius:'50%', background:'#fff', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 1px 2px rgba(0,0,0,0.12)', cursor:'pointer', border:'1px solid rgba(0,0,0,0.06)'});
+      const item = arr[i] || '';
+      const name = (typeof item === 'string')? item : (item && item.name) || '';
+      const initials = (name.split(' ').map(s=>s[0]||'').slice(0,2).join('').toUpperCase()) || 'G';
+      person.dataset.idx = i; person.dataset.table = tableId;
+      person.title = name;
+      // avatar image if present
+      const avatarUrl = (item && item.avatar && (item.avatar.url || item.avatar.key)) || null;
+      if (avatarUrl){
+        const img = document.createElement('img'); img.src = avatarUrl; img.alt = name; Object.assign(img.style,{ width:'100%', height:'100%', objectFit:'cover', borderRadius:'50%' }); person.appendChild(img);
+      } else {
+        person.textContent = initials;
+      }
       const label = document.createElement('div'); label.className = 'person-label'; label.textContent = name; label.style.display='none';
       person.addEventListener('mouseenter', ()=> label.style.display = 'block');
       person.addEventListener('mouseleave', ()=> label.style.display = 'none');
@@ -140,9 +149,26 @@
 
   function onPersonClick(tableId, idx){
     const list = assignments[tableId] || [];
-    const name = list[idx]; if (!name) return;
-    if (!isAdmin()){ alert(name + '\n\nPrzy ' + tableId + ' siedzą:\n' + (list.join('\n')||'Pusty stolik')); return; }
-    const newName = prompt('Edycja osoby', name); if (newName === null) return; if (newName.trim()) list[idx] = newName.trim(); else list.splice(idx,1); assignments[tableId] = list.length? list : undefined; saveToServer(); renderAll();
+    const item = list[idx]; if (!item) return;
+    const name = (typeof item === 'string')? item : (item && item.name) || '';
+    if (!isAdmin()){ alert(name + '\n\nPrzy ' + tableId + ' siedzą:\n' + ((list||[]).map(it=> typeof it === 'string'? it : (it && it.name)).join('\n')||'Pusty stolik')); return; }
+    // present simple edit options: rename, change avatar, or remove
+    const action = prompt('Edycja osoby:\nWpisz nowe imię aby zmienić nazwę, wpisz `:avatar` aby zmienić avatar, wpisz pusty tekst aby usunąć.\nObecnie: ' + name, name);
+    if (action === null) return;
+    const val = action.trim();
+    if (val === ''){ // remove
+      list.splice(idx,1);
+    } else if (val === ':avatar'){
+      // change avatar
+      pickAndUploadAvatar().then(avatar => {
+        if (!avatar) return; const cur = list[idx]; if (typeof cur === 'string') list[idx] = { name: cur, avatar }; else cur.avatar = avatar; assignments[tableId] = list.length? list : undefined; saveToServer(); renderAll();
+      });
+      return;
+    } else {
+      // rename
+      if (typeof item === 'string') list[idx] = val; else item.name = val;
+    }
+    assignments[tableId] = list.length? list : undefined; saveToServer(); renderAll();
   }
 
   // selection toolbar
@@ -154,7 +180,8 @@
       // show read-only guest list for non-admins
       const key = 't'+(index+1);
       const arr = assignments[key] || [];
-      alert('Przy ' + key + ' siedzą:\n\n' + (arr.join('\n') || 'Pusty stolik'));
+      const listStr = (arr||[]).map(it=> typeof it === 'string'? it : (it && it.name)).join('\n');
+      alert('Przy ' + key + ' siedzą:\n\n' + (listStr || 'Pusty stolik'));
       return;
     }
     showToolbarFor(el, index);
@@ -203,8 +230,17 @@
     const name = prompt('Wpisz imię i nazwisko nowej osoby:');
     if (!name) return;
     assignments[key] = assignments[key] || [];
-    assignments[key].push(name.trim());
-    pushHistory(); saveToServer(); renderAll();
+    const trimmed = name.trim();
+    // ask for avatar
+    if (confirm('Czy dodać avatar dla tej osoby?')){
+      pickAndUploadAvatar().then(avatar => {
+        if (avatar) assignments[key].push({ name: trimmed, avatar }); else assignments[key].push(trimmed);
+        pushHistory(); saveToServer(); renderAll();
+      });
+    } else {
+      assignments[key].push(trimmed);
+      pushHistory(); saveToServer(); renderAll();
+    }
   }
 
   function renameTable(index){
@@ -223,8 +259,29 @@
     Object.keys(assignments).forEach(k=>{ const n = parseInt(k.replace('t',''),10); if (n <= index+1) newAssign[k] = assignments[k]; else newAssign['t'+(n-1)] = assignments[k]; });
     assignments = newAssign; pushHistory(); saveToServer(); renderAll(); }
 
-  function editTable(tableId){ const arr = assignments[tableId] || []; if (!isAdmin()){ alert('Przy ' + tableId + ' siedzą:\n' + (arr.join('\n')||'Pusty stolik')); return; }
-    const val = prompt('Wpisz imiona (oddziel przecinkami):', arr.join(', ')); if (val === null) return; const newArr = val.split(',').map(s=>s.trim()).filter(Boolean); if (newArr.length) assignments[tableId] = newArr; else delete assignments[tableId]; saveToServer(); renderAll(); }
+  function editTable(tableId){ const arr = assignments[tableId] || []; if (!isAdmin()){ const listStr = (arr||[]).map(it=> typeof it === 'string'? it : (it && it.name)).join('\n'); alert('Przy ' + tableId + ' siedzą:\n' + (listStr||'Pusty stolik')); return; }
+    const display = (arr||[]).map(it=> typeof it === 'string'? it : (it && it.name)).join(', ');
+    const val = prompt('Wpisz imiona (oddziel przecinkami):', display); if (val === null) return; const newArr = val.split(',').map(s=>s.trim()).filter(Boolean); if (newArr.length) assignments[tableId] = newArr; else delete assignments[tableId]; saveToServer(); renderAll(); }
+
+  // helper: open file picker and upload avatar, returns { key, url } or null
+  function pickAndUploadAvatar(){
+    return new Promise((resolve)=>{
+      const inp = document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.style.display='none'; document.body.appendChild(inp);
+      inp.addEventListener('change', async ()=>{
+        const f = inp.files && inp.files[0]; if (!f){ document.body.removeChild(inp); resolve(null); return; }
+        try{
+          const fd = new FormData(); fd.append('file', f, f.name);
+          const res = await fetch(API_BASE + '/api/upload', { method:'POST', body: fd });
+          if (!res.ok) throw new Error('upload failed');
+          const j = await res.json(); const first = (j && j.files && j.files[0]) || j;
+          const avatar = first && (first.url || first.key) ? { key: first.key, url: first.url || first.key } : null;
+          document.body.removeChild(inp);
+          resolve(avatar);
+        }catch(e){ console.error('avatar upload failed', e); document.body.removeChild(inp); resolve(null); }
+      });
+      inp.click();
+    });
+  }
 
   // Dragging
   function makeDraggable(el, index){
@@ -243,7 +300,7 @@
   // SEARCH / SUGGESTIONS
   function buildIndex(){
     const names = [];
-    Object.keys(assignments).forEach(k=>{ (assignments[k]||[]).forEach(name=>{ if (!name) return; names.push({ name, table:k }); }); });
+    Object.keys(assignments).forEach(k=>{ (assignments[k]||[]).forEach(item=>{ const name = (typeof item === 'string')? item : (item && item.name); if (!name) return; names.push({ name, table:k }); }); });
     return names;
   }
 
