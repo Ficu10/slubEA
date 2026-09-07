@@ -123,12 +123,19 @@
     const count = arr.length;
     const distance = 60; // percent from center
     for(let i=0;i<count;i++){
-      const angle = (i / count) * Math.PI * 2 - Math.PI/2;
-      const cx = 50 + Math.cos(angle) * distance;
-      const cy = 50 + Math.sin(angle) * distance;
+      // default circular layout unless specific position provided on person
+      let cx, cy;
+      const item = arr[i] || '';
+      const personPos = (item && item.pos) || null;
+      if (personPos && typeof personPos.x === 'number' && typeof personPos.y === 'number'){
+        cx = personPos.x; cy = personPos.y;
+      } else {
+        const angle = (i / count) * Math.PI * 2 - Math.PI/2;
+        cx = 50 + Math.cos(angle) * distance;
+        cy = 50 + Math.sin(angle) * distance;
+      }
       const person = document.createElement('div'); person.className = 'person';
       Object.assign(person.style, { position:'absolute', left:cx+'%', top:cy+'%', transform:'translate(-50%,-50%)', width:'36px', height:'36px', borderRadius:'50%', background:'#fff', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 1px 2px rgba(0,0,0,0.12)', cursor:'pointer', border:'1px solid rgba(0,0,0,0.06)'});
-      const item = arr[i] || '';
       const name = (typeof item === 'string')? item : (item && item.name) || '';
       const initials = (name.split(' ').map(s=>s[0]||'').slice(0,2).join('').toUpperCase()) || 'G';
       person.dataset.idx = i; person.dataset.table = tableId;
@@ -144,7 +151,7 @@
       person.addEventListener('mouseenter', ()=> label.style.display = 'block');
       person.addEventListener('mouseleave', ()=> label.style.display = 'none');
       person.addEventListener('click', (ev)=>{ ev.stopPropagation(); if (editMode === 'people') onPersonClick(tableId, i); else { /* treat as table click */ selectTable(parseInt(tableId.replace('t',''),10)-1, document.getElementById(tableId)); } });
-      // make avatar draggable for admins
+      // make avatar draggable for admins (supports moving between tables and reposition inside same table)
       makePersonDraggable(person, tableId, i);
       tableEl.appendChild(person); tableEl.appendChild(label);
     }
@@ -163,7 +170,7 @@
         // detect drop target
         const dropEl = document.elementFromPoint(e.clientX, e.clientY);
         const targetTable = dropEl && dropEl.closest && dropEl.closest('.table');
-        if (targetTable){ const toId = targetTable.id; if (toId && toId !== tableId){ // move person
+        if (targetTable){ const toId = targetTable.id; if (toId && toId !== tableId){ // move person to other table
             const fromArr = assignments[tableId] || []; const item = fromArr[idx]; if (!item) { cleanup(); return; }
             // remove from original (may need to find by reference if indexes changed)
             // find first matching by name or by index
@@ -174,7 +181,19 @@
             }
             if (fromArr.length) assignments[tableId] = fromArr; else delete assignments[tableId];
             assignments[toId] = assignments[toId] || [];
+            // clear pos when moved to new table so it will be auto-arranged
+            if (removed && removed.pos) delete removed.pos;
             assignments[toId].push(removed);
+            pushHistory(); saveToServer(); renderAll();
+          }
+          else if (toId === tableId){
+            // reposition inside same table: compute position relative to table element
+            const tRect = targetTable.getBoundingClientRect(); const relX = ((e.clientX - tRect.left) / tRect.width) * 100; const relY = ((e.clientY - tRect.top) / tRect.height) * 100;
+            const fromArr = assignments[tableId] || []; const item = fromArr[idx]; if (!item) { cleanup(); return; }
+            // ensure object
+            const obj = (typeof item === 'string')? { name: item } : item;
+            obj.pos = { x: Math.max(2, Math.min(98, relX)), y: Math.max(2, Math.min(98, relY)) };
+            fromArr[idx] = obj; assignments[tableId] = fromArr;
             pushHistory(); saveToServer(); renderAll();
           }
         }
