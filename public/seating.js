@@ -435,6 +435,7 @@
     const undoBtn = createBtn('↶', 'Cofnij', ()=>{ undo(); });
     const redoBtn = createBtn('↷', 'Ponów', ()=>{ redo(); });
     const addP = createBtn('＋ Os.', 'Dodaj osobę', ()=> addPersonToTable(index));
+    const arrangePeople = createBtn('◎ Sym.', 'Ustaw awatary symetrycznie', ()=> arrangePeopleSymmetrically(index));
     const rename = createBtn('✎N', 'Zmień nazwę stolika', ()=> renameTable(index));
     const shape = createBtn('🔄', 'Zmień kształt', ()=> { toggleShape(index); refreshToolbarSize(); });
     const setRect = createBtn('◻', 'Ustaw prostokąt', ()=>{ const p=positions[index]; if (!p) return; p.shape='rect'; p.w = p.w||28; p.h = p.h||16; pushHistory(); saveToServer(); renderAll(); });
@@ -448,7 +449,7 @@
 
     if (isAdmin()){
       toolbar.appendChild(undoBtn); toolbar.appendChild(redoBtn);
-      toolbar.appendChild(inc); toolbar.appendChild(dec); toolbar.appendChild(sizeReadout); toolbar.appendChild(addP); toolbar.appendChild(rename);
+      toolbar.appendChild(inc); toolbar.appendChild(dec); toolbar.appendChild(sizeReadout); toolbar.appendChild(addP); toolbar.appendChild(arrangePeople); toolbar.appendChild(rename);
       toolbar.appendChild(shape); toolbar.appendChild(setRect); toolbar.appendChild(setCircle); toolbar.appendChild(dup); toolbar.appendChild(edit); toolbar.appendChild(del); toolbar.appendChild(snapBtn);
     } else {
       // non-admins see only the size/readout
@@ -477,6 +478,27 @@
     });
 
     refreshToolbarSize();
+  }
+
+  function arrangePeopleSymmetrically(index){
+    if (!isAdmin()) return;
+    const tableId = 't' + (index + 1);
+    const list = assignments[tableId] || [];
+    if (!list.length) return;
+    pushHistory();
+    const startAngle = 200;
+    const endAngle = 340;
+    const radius = 44;
+    list.forEach((entry, personIndex)=>{
+      const item = typeof entry === 'string' ? { name:entry } : entry;
+      const angle = list.length === 1 ? 270 : startAngle + ((endAngle - startAngle) * personIndex / (list.length - 1));
+      const radians = angle * Math.PI / 180;
+      item.pos = snapAvatarPosition(50 + Math.cos(radians) * radius, 50 + Math.sin(radians) * radius);
+      list[personIndex] = item;
+    });
+    assignments[tableId] = list;
+    saveToServer();
+    renderAll();
   }
 
   function createBtn(text, title, onClick){ const b = document.createElement('button'); b.textContent = text; b.title = title; b.className='btn-outline'; b.addEventListener('click',(e)=>{ e.stopPropagation(); onClick(); removeToolbar(); }); return b; }
@@ -563,6 +585,7 @@
     // delete button
     const btnRow = document.createElement('div'); Object.assign(btnRow.style,{ display:'flex', gap:'8px', justifyContent:'flex-end', marginTop:'8px' });
     const del = document.createElement('button'); del.textContent='Usuń stolik'; del.className='btn-outline'; del.style.background='#c0392b'; del.style.color='#fff'; del.addEventListener('click', ()=>{ if (confirm('Usunąć ten stolik?')){ deleteTable(index); modal.remove(); } });
+    const arrangePeople = document.createElement('button'); arrangePeople.textContent='Ustaw awatary symetrycznie'; arrangePeople.className='btn-outline'; arrangePeople.addEventListener('click', ()=>{ arrangePeopleSymmetrically(index); modal.remove(); });
     const cancel = document.createElement('button'); cancel.textContent='Anuluj'; cancel.className='btn-outline'; cancel.addEventListener('click', ()=> modal.remove());
     const save = document.createElement('button'); save.textContent='Zapisz'; save.className='btn-outline'; save.style.background='var(--green)'; save.style.color='#fff'; save.addEventListener('click', ()=>{
       const name = (nameInput.value||'').trim(); if (name) p.label = name; else delete p.label;
@@ -573,7 +596,7 @@
     nameInput.addEventListener('input', ()=> previewInner.textContent = nameInput.value);
     sizeInput.addEventListener('input', previewShape); sizeInput2.addEventListener('input', previewShape);
     // assemble
-    box.appendChild(title); box.appendChild(nameInput); box.appendChild(shapeRow); box.appendChild(sizeWrap); box.appendChild(preview); btnRow.appendChild(del); btnRow.appendChild(cancel); btnRow.appendChild(save); box.appendChild(btnRow); modal.appendChild(box); document.body.appendChild(modal);
+    box.appendChild(title); box.appendChild(nameInput); box.appendChild(shapeRow); box.appendChild(sizeWrap); box.appendChild(preview); btnRow.appendChild(del); btnRow.appendChild(arrangePeople); btnRow.appendChild(cancel); btnRow.appendChild(save); box.appendChild(btnRow); modal.appendChild(box); document.body.appendChild(modal);
     // initialize
     refreshSizeControls(); previewShape();
   }
