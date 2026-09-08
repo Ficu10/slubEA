@@ -35,13 +35,19 @@
       const res = await fetch(API_BASE + '/api/seating');
       if (!res.ok) throw new Error('no-server');
       const json = await res.json();
-      positions = json.positions && json.positions.length ? json.positions : defaultPositions.slice();
+      // If server returns empty positions (accidental wipe), prefer local storage when available
+      let serverPositions = (json.positions && Array.isArray(json.positions))? json.positions : [];
+      const localRaw = (()=>{ try{ return localStorage.getItem(seatingKey); }catch(e){ return null } })();
+      if ((!serverPositions || serverPositions.length === 0) && localRaw){
+        try{ const j = JSON.parse(localRaw); if (j && j.positions && j.positions.length){ positions = j.positions; assignments = j.assignments || {}; drawings = j.drawings || []; return; } }catch(_){ }
+      }
+      positions = serverPositions && serverPositions.length ? serverPositions : defaultPositions.slice();
       assignments = json.assignments || {};
       drawings = json.drawings || [];
       return;
     }catch(e){
       // fallback to localStorage
-      try{ const s = localStorage.getItem(seatingKey); if (s){ const j = JSON.parse(s); positions = j.positions || defaultPositions.slice(); assignments = j.assignments || {}; drawings = j.drawings || []; return; } }catch(_){}
+      try{ const s = localStorage.getItem(seatingKey); if (s){ const j = JSON.parse(s); positions = j.positions || defaultPositions.slice(); assignments = j.assignments || {}; drawings = j.drawings || []; return; } }catch(_){ }
       positions = defaultPositions.slice(); assignments = {}; drawings = [];
     }
   }
@@ -50,6 +56,8 @@
     const token = localStorage.getItem('adminToken');
     const body = { positions, assignments, drawings };
     if (!token){ saveLocal(); return; }
+    // avoid accidentally overwriting server with empty seating (require explicit admin action)
+    if (!positions || positions.length === 0){ console.warn('Not saving empty positions to server'); saveLocal(); return; }
     try{
       await fetch(API_BASE + '/api/seating', { method:'POST', headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+token }, body: JSON.stringify(body) });
     }catch(e){ saveLocal(); }
