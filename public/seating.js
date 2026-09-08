@@ -5,7 +5,7 @@
   const searchSuggestions = document.getElementById('searchSuggestions');
   const searchBtn = document.getElementById('searchBtn');
   const clearBtn = document.getElementById('clearBtn');
-  const controls = document.querySelector('.seating-controls');
+  function getControls(){ return document.querySelector('.seating-controls') || document.body; }
 
   const seatingKey = 'wesele_seating_v1';
   const API_BASE = window.API_URL || '';
@@ -31,22 +31,22 @@
   function saveLocal(){ localStorage.setItem(seatingKey, JSON.stringify({ positions, assignments, drawings })); }
 
   async function loadFromServer(){
+    // Prefer local copy if it exists and has positions — this avoids accidental server wipes
     try{
+      const localRaw = (()=>{ try{ return localStorage.getItem(seatingKey); }catch(e){ return null } })();
+      if (localRaw){ try{ const j = JSON.parse(localRaw); if (j && Array.isArray(j.positions) && j.positions.length){ positions = j.positions; assignments = j.assignments || {}; drawings = j.drawings || []; return; } }catch(_){ /* ignore parse errors */ } }
+
+      // otherwise try server
       const res = await fetch(API_BASE + '/api/seating');
       if (!res.ok) throw new Error('no-server');
       const json = await res.json();
-      // If server returns empty positions (accidental wipe), prefer local storage when available
-      let serverPositions = (json.positions && Array.isArray(json.positions))? json.positions : [];
-      const localRaw = (()=>{ try{ return localStorage.getItem(seatingKey); }catch(e){ return null } })();
-      if ((!serverPositions || serverPositions.length === 0) && localRaw){
-        try{ const j = JSON.parse(localRaw); if (j && j.positions && j.positions.length){ positions = j.positions; assignments = j.assignments || {}; drawings = j.drawings || []; return; } }catch(_){ }
-      }
+      const serverPositions = (json.positions && Array.isArray(json.positions))? json.positions : [];
       positions = serverPositions && serverPositions.length ? serverPositions : defaultPositions.slice();
       assignments = json.assignments || {};
       drawings = json.drawings || [];
       return;
     }catch(e){
-      // fallback to localStorage
+      // fallback to localStorage or defaults
       try{ const s = localStorage.getItem(seatingKey); if (s){ const j = JSON.parse(s); positions = j.positions || defaultPositions.slice(); assignments = j.assignments || {}; drawings = j.drawings || []; return; } }catch(_){ }
       positions = defaultPositions.slice(); assignments = {}; drawings = [];
     }
@@ -572,7 +572,8 @@
   function ensureAddButton(){ // create add button only for admins; login flow calls this after auth
     if (document.getElementById('addTableBtn')) return;
     if (!isAdmin()) return;
-    const btn = document.createElement('button'); btn.id='addTableBtn'; btn.className='btn-outline'; btn.textContent='Dodaj stolik'; btn.addEventListener('click', ()=>{ if (!isAdmin()){ alert('Tylko admin może dodawać stoliki.'); return; } addTable(); }); controls.appendChild(btn);
+    const btn = document.createElement('button'); btn.id='addTableBtn'; btn.className='btn-outline'; btn.textContent='Dodaj stolik'; btn.addEventListener('click', ()=>{ if (!isAdmin()){ alert('Tylko admin może dodawać stoliki.'); return; } addTable(); });
+    const target = getControls(); try{ target.appendChild(btn); }catch(e){ document.body.appendChild(btn); }
   }
   function addTable(){ positions.push({ x:50, y:50, size:12, shape:'circle' }); saveToServer(); renderAll(); }
 
@@ -584,7 +585,8 @@
     if (!isAdmin()) return;
     function update(){ b.textContent = (editMode === 'tables')? 'Edytuj: Stoły' : 'Edytuj: Osoby'; }
     b.addEventListener('click', ()=>{ editMode = (editMode === 'tables')? 'people' : 'tables'; update(); renderAll(); });
-    controls.appendChild(b); update(); }
+    const target = getControls(); try{ target.appendChild(b); }catch(e){ document.body.appendChild(b); }
+    update(); }
 
   // init
   (async function init(){ await loadFromServer(); renderAll(); ensureAddButton(); ensureCanvas(); ensureEditModeButton(); })();
