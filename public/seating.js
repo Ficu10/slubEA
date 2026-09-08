@@ -13,6 +13,8 @@
   let positions = [];
   let assignments = {};
   let drawings = [];
+  // DEBUG: allow dragging for non-admins to help testing (set to false to require admin)
+  let allowDragForGuests = true;
   let history = { past: [], future: [] };
   let snapToGrid = false;
   let editMode = 'tables'; // 'tables' or 'people'
@@ -172,7 +174,7 @@
     let dragging = false; let ghost = null; let startX=0,startY=0;
     function cleanup(){ if (ghost && ghost.parentNode) ghost.parentNode.removeChild(ghost); ghost=null; dragging=false; }
     el.addEventListener('pointerdown', (ev)=>{
-      if (!isAdmin()) return; startX = ev.clientX; startY = ev.clientY; el.setPointerCapture && el.setPointerCapture(ev.pointerId);
+      if (!isAdmin() && !allowDragForGuests) return; startX = ev.clientX; startY = ev.clientY; el.setPointerCapture && el.setPointerCapture(ev.pointerId);
       let moved = false;
       const onMove = (e)=>{
         const dx = e.clientX - startX; const dy = e.clientY - startY;
