@@ -284,7 +284,7 @@
       let moved = false;
       const onMouseMove = (e)=>{ const dx = e.clientX - startX; const dy = e.clientY - startY; if (!dragging && Math.hypot(dx,dy) > 6){ dragging = true; moved = true; ghost = el.cloneNode(true); ghost.style.position='fixed'; ghost.style.left = (e.clientX - 18) + 'px'; ghost.style.top = (e.clientY - 18) + 'px'; ghost.style.pointerEvents='none'; ghost.style.opacity='0.9'; ghost.style.zIndex = 20000; document.body.appendChild(ghost); el.style.opacity='0.4'; }
         if (dragging && ghost){ ghost.style.left = (e.clientX - 18) + 'px'; ghost.style.top = (e.clientY - 18) + 'px'; } };
-      const onMouseUp = (e)=>{ document.removeEventListener('mousemove', onMouseMove); document.removeEventListener('mouseup', onMouseUp); if (!dragging){ try{ onPersonClick(tableId, idx); }catch(_){ } return; } el.style.opacity='1'; const allTables = Array.from(document.querySelectorAll('.table')); let targetTable = null; for (const t of allTables){ const r = t.getBoundingClientRect(); if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom){ targetTable = t; break; } } if (targetTable){ const toId = targetTable.id; const fromArr = assignments[tableId] || []; let item = typeof fromArr[idx] !== 'undefined' ? fromArr[idx] : null; if (!item){ const title = el.title || null; if (title){ const names = fromArr.map(it=> typeof it==='string'? it : (it && it.name)); const fi = names.indexOf(title); if (fi >= 0) item = fromArr[fi]; } if (!item) item = fromArr[0] || null; } if (!item){ cleanup(); return; } if (toId && toId !== tableId){ const remIndex = fromArr.indexOf(item); let removed = null; if (remIndex >= 0){ removed = fromArr.splice(remIndex,1)[0]; } if (fromArr.length) assignments[tableId] = fromArr; else delete assignments[tableId]; assignments[toId] = assignments[toId] || []; if (removed && removed.pos) delete removed.pos; assignments[toId].push(removed); try{ window._lastDrop = { from: tableId, to: toId, moved: true, removedName: (removed && (removed.name||removed||'')).toString(), time: Date.now() }; }catch(_){ } pushHistory(); saveToServer(); renderAll(); } else { const tRect = targetTable.getBoundingClientRect(); const relX = ((e.clientX - tRect.left) / tRect.width) * 100; const relY = ((e.clientY - tRect.top) / tRect.height) * 100; const xPct = Math.max(2, Math.min(98, relX)); const yPct = Math.max(2, Math.min(98, relY)); if (typeof fromArr[idx] !== 'undefined'){ const existing = fromArr[idx]; if (typeof existing === 'string'){ fromArr[idx] = { name: existing, pos: { x: xPct, y: yPct } }; } else { existing.pos = { x: xPct, y: yPct }; } assignments[tableId] = fromArr; } else { const obj = (typeof item === 'string')? { name: item } : item; obj.pos = { x: xPct, y: yPct }; assignments[tableId] = assignments[tableId] || []; assignments[tableId].push(obj); } try{ window._lastDrop = { from: tableId, to: tableId, moved: false, idx: idx, pos: { x: xPct, y: yPct }, time: Date.now() }; }catch(_){ } pushHistory(); saveToServer(); renderAll(); } };
+      const onMouseUp = (e)=>{ document.removeEventListener('mousemove', onMouseMove); document.removeEventListener('mouseup', onMouseUp); if (!dragging){ try{ onPersonClick(tableId, idx); }catch(_){ } return; } el.style.opacity='1'; const allTables = Array.from(document.querySelectorAll('.table')); let targetTable = null; for (const t of allTables){ const r = t.getBoundingClientRect(); if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom){ targetTable = t; break; } } if (targetTable){ const toId = targetTable.id; const fromArr = assignments[tableId] || []; let item = typeof fromArr[idx] !== 'undefined' ? fromArr[idx] : null; if (!item){ const title = el.title || null; if (title){ const names = fromArr.map(it=> typeof it==='string'? it : (it && it.name)); const fi = names.indexOf(title); if (fi >= 0) item = fromArr[fi]; } if (!item) item = fromArr[0] || null; } if (!item){ cleanup(); return; } if (toId && toId !== tableId){ const remIndex = fromArr.indexOf(item); let removed = null; if (remIndex >= 0){ removed = fromArr.splice(remIndex,1)[0]; } if (fromArr.length) assignments[tableId] = fromArr; else delete assignments[tableId]; assignments[toId] = assignments[toId] || []; if (removed && removed.pos) delete removed.pos; assignments[toId].push(removed); try{ window._lastDrop = { from: tableId, to: toId, moved: true, removedName: (removed && (removed.name||removed||'')).toString(), time: Date.now() }; }catch(_){ } pushHistory(); saveToServer(); renderAll(); } else { const tRect = targetTable.getBoundingClientRect(); const relX = ((e.clientX - tRect.left) / tRect.width) * 100; const relY = ((e.clientY - tRect.top) / tRect.height) * 100; const xPct = Math.max(2, Math.min(98, relX)); const yPct = Math.max(2, Math.min(98, relY)); if (typeof fromArr[idx] !== 'undefined'){ const existing = fromArr[idx]; if (typeof existing === 'string'){ fromArr[idx] = { name: existing, pos: { x: xPct, y: yPct } }; } else { existing.pos = { x: xPct, y: yPct }; } assignments[tableId] = fromArr; } else { const obj = (typeof item === 'string')? { name: item } : item; obj.pos = { x: xPct, y: yPct }; assignments[tableId] = assignments[tableId] || []; assignments[tableId].push(obj); } try{ window._lastDrop = { from: tableId, to: tableId, moved: false, idx: idx, pos: { x: xPct, y: yPct }, time: Date.now() }; }catch(_){ } pushHistory(); saveToServer(); renderAll(); } } };
       document.addEventListener('mousemove', onMouseMove); document.addEventListener('mouseup', onMouseUp);
     });
   }
@@ -595,6 +595,45 @@
   }
   function addTable(){ positions.push({ x:50, y:50, size:12, shape:'circle' }); saveToServer(); renderAll(); }
 
+  function ensureAdminControls(){
+    const loginBtn = document.getElementById('adminLoginBtn');
+    if (isAdmin()){
+      if (loginBtn) loginBtn.remove();
+      ensureAddButton();
+      ensureEditModeButton();
+      return;
+    }
+    if (document.getElementById('addTableBtn') || loginBtn) return;
+    const btn = document.createElement('button');
+    btn.id = 'adminLoginBtn';
+    btn.className = 'btn-outline';
+    btn.textContent = 'Zaloguj jako administrator';
+    btn.addEventListener('click', async ()=>{
+      const user = (prompt('Login administratora:') || '').trim();
+      const pass = prompt('Hasło administratora:') || '';
+      if (!user || !pass) return;
+      try{
+        const response = await fetch(API_BASE + '/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type':'application/json' },
+          body: JSON.stringify({ user, pass })
+        });
+        const result = await response.json();
+        if (!response.ok || !result.success || !result.token){
+          alert('Nieprawidłowy login lub hasło.');
+          return;
+        }
+        localStorage.setItem('adminToken', result.token);
+        localStorage.setItem('user', user);
+        if (window.authUpdateNav) window.authUpdateNav();
+        ensureAdminControls();
+      }catch(e){
+        alert('Nie można połączyć z serwerem.');
+      }
+    });
+    getControls().appendChild(btn);
+  }
+
   
 
   // Edit mode toggle (tables <-> people)
@@ -607,7 +646,7 @@
     update(); }
 
   // init
-  (async function init(){ await loadFromServer(); renderAll(); ensureAddButton(); ensureCanvas(); ensureEditModeButton(); })();
+  (async function init(){ await loadFromServer(); renderAll(); ensureAdminControls(); ensureCanvas(); })();
 
   
 

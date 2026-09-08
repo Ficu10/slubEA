@@ -170,7 +170,7 @@ const sessions = new Set();
 
 app.post('/api/login', (req, res) => {
   const { user, pass } = req.body || {};
-  if (user === 'adas' && pass === 'emilka'){
+  if (user === 'emilka' && pass === 'adas'){
     const token = require('crypto').randomBytes(24).toString('hex');
     sessions.add(token);
     return res.json({ success: true, token });
