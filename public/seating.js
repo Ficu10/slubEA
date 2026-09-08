@@ -486,14 +486,16 @@
     const list = assignments[tableId] || [];
     if (!list.length) return;
     pushHistory();
-    const startAngle = 200;
-    const endAngle = 340;
-    const radius = 44;
+    const startAngle = -90;
+    const radius = 42;
     list.forEach((entry, personIndex)=>{
       const item = typeof entry === 'string' ? { name:entry } : entry;
-      const angle = list.length === 1 ? 270 : startAngle + ((endAngle - startAngle) * personIndex / (list.length - 1));
+      const angle = list.length === 1 ? startAngle : startAngle + (360 * personIndex / list.length);
       const radians = angle * Math.PI / 180;
-      item.pos = snapAvatarPosition(50 + Math.cos(radians) * radius, 50 + Math.sin(radians) * radius);
+      item.pos = {
+        x: Math.round((50 + Math.cos(radians) * radius) * 100) / 100,
+        y: Math.round((50 + Math.sin(radians) * radius) * 100) / 100
+      };
       list[personIndex] = item;
     });
     assignments[tableId] = list;
