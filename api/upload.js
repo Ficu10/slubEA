@@ -51,7 +51,8 @@ module.exports = async function (req, res) {
       for (const file of filesArr) {
         const origName = file.originalname || 'file';
         const safeName = String(origName).replace(/[^a-zA-Z0-9._-]/g, '_');
-        const key = `uploads/${Date.now()}-${safeName}`;
+        const prefix = req.body && req.body.purpose === 'avatar' ? 'avatars' : 'uploads';
+        const key = `${prefix}/${Date.now()}-${safeName}`;
 
         const cmd = new PutObjectCommand({
           Bucket: process.env.R2_BUCKET_NAME,

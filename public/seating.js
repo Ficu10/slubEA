@@ -525,6 +525,7 @@
   async function uploadFile(file){
     try{
       const fd = new FormData(); fd.append('file', file, file.name);
+      fd.append('purpose', 'avatar');
       const res = await fetch(API_BASE + '/api/upload', { method:'POST', body: fd });
       if (!res.ok) throw new Error('upload failed');
       const j = await res.json(); const first = (j && j.files && j.files[0]) || j;
