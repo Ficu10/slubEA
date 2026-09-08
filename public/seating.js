@@ -49,6 +49,11 @@
   // UTIL
   function isAdmin(){ return !!localStorage.getItem('adminToken'); }
   function saveLocal(){ localStorage.setItem(seatingKey, JSON.stringify({ positions, assignments, drawings })); }
+  function avatarImageUrl(avatar){
+    if (!avatar) return null;
+    if (avatar.key) return API_BASE + '/api/zdjecia?key=' + encodeURIComponent(avatar.key);
+    return avatar.url || null;
+  }
   function snapAvatarPosition(x, y){
     const grid = 10;
     return {
@@ -210,7 +215,7 @@
       person.dataset.idx = i; person.dataset.table = tableId;
       person.title = name;
       // avatar image if present
-      const avatarUrl = (item && item.avatar && (item.avatar.url || item.avatar.key)) || null;
+      const avatarUrl = avatarImageUrl(item && item.avatar);
       if (avatarUrl){
         const img = document.createElement('img'); img.src = avatarUrl; img.alt = name; img.draggable = false; img.style.webkitUserDrag='none'; img.style.userDrag='none'; Object.assign(img.style,{ width:'100%', height:'100%', objectFit:'cover', borderRadius:'50%' }); person.appendChild(img);
       } else {
@@ -375,8 +380,8 @@
       const viewModal = document.createElement('div'); Object.assign(viewModal.style,{ position:'fixed', left:0, top:0, right:0, bottom:0, background:'rgba(0,0,0,0.6)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:22000 });
       const card = document.createElement('div'); Object.assign(card.style,{ background:'#fff', padding:'18px', borderRadius:'10px', minWidth:'320px', maxWidth:'560px', textAlign:'center' });
       const big = document.createElement('div'); Object.assign(big.style,{ width:'220px', height:'220px', margin:'0 auto 12px', borderRadius:'12px', overflow:'hidden', background:'#f3f3f3', display:'flex', alignItems:'center', justifyContent:'center' });
-      if (person.avatar && (person.avatar.url||person.avatar.key)){
-        const img2 = document.createElement('img'); img2.src = person.avatar.url || person.avatar.key; img2.alt = person.name; img2.draggable = false; img2.style.webkitUserDrag='none'; img2.style.userDrag='none'; Object.assign(img2.style,{ width:'100%', height:'100%', objectFit:'cover' }); big.appendChild(img2);
+      if (avatarImageUrl(person.avatar)){
+        const img2 = document.createElement('img'); img2.src = avatarImageUrl(person.avatar); img2.alt = person.name; img2.draggable = false; img2.style.webkitUserDrag='none'; img2.style.userDrag='none'; Object.assign(img2.style,{ width:'100%', height:'100%', objectFit:'cover' }); big.appendChild(img2);
       } else {
         const initials = (person.name||'').split(' ').map(s=>s[0]||'').slice(0,2).join('').toUpperCase()||'G'; const sp2 = document.createElement('div'); sp2.textContent = initials; sp2.style.fontSize='72px'; sp2.style.fontWeight='700'; big.appendChild(sp2);
       }
@@ -393,9 +398,9 @@
     const nameInput = document.createElement('input'); nameInput.value = person.name || ''; Object.assign(nameInput.style,{ width:'100%', padding:'8px', marginBottom:'8px' });
     const infoInput = document.createElement('textarea'); infoInput.placeholder='Informacje o osobie (np. dieta, rola)'; infoInput.value = person.info || ''; Object.assign(infoInput.style,{ width:'100%', padding:'8px', minHeight:'80px', boxSizing:'border-box', marginBottom:'8px' });
     const imgWrap = document.createElement('div'); Object.assign(imgWrap.style,{ width:'120px', height:'120px', margin:'0 auto 8px', borderRadius:'8px', overflow:'hidden', background:'#f3f3f3', display:'flex',alignItems:'center',justifyContent:'center' });
-    const img = document.createElement('img'); img.style.width='100%'; img.style.height='100%'; img.style.objectFit='cover'; if (person.avatar && (person.avatar.url||person.avatar.key)){ img.src = (person.avatar.url||person.avatar.key); img.draggable=false; img.style.webkitUserDrag='none'; img.style.userDrag='none'; }
+    const img = document.createElement('img'); img.style.width='100%'; img.style.height='100%'; img.style.objectFit='cover'; if (avatarImageUrl(person.avatar)){ img.src = avatarImageUrl(person.avatar); img.draggable=false; img.style.webkitUserDrag='none'; img.style.userDrag='none'; }
     if (person.avatar) imgWrap.appendChild(img); else { const initials = (person.name||'').split(' ').map(s=>s[0]||'').slice(0,2).join('').toUpperCase()||'G'; const sp = document.createElement('div'); sp.textContent=initials; sp.style.fontSize='48px'; sp.style.fontWeight='700'; imgWrap.appendChild(sp); }
-    const changeAvatarBtn = document.createElement('button'); changeAvatarBtn.textContent='Zmień awatar'; changeAvatarBtn.className='btn-outline'; changeAvatarBtn.style.display='block'; changeAvatarBtn.style.margin='8px auto'; changeAvatarBtn.addEventListener('click', async ()=>{ const f = await pickAndUploadAvatar(); if (f){ person.avatar = f; img.src = f.url || f.key || ''; if (!img.parentNode) imgWrap.appendChild(img); } });
+    const changeAvatarBtn = document.createElement('button'); changeAvatarBtn.textContent='Zmień awatar'; changeAvatarBtn.className='btn-outline'; changeAvatarBtn.style.display='block'; changeAvatarBtn.style.margin='8px auto'; changeAvatarBtn.addEventListener('click', async ()=>{ const f = await pickAndUploadAvatar(); if (f){ person.avatar = f; img.src = avatarImageUrl(f); if (!img.parentNode) imgWrap.appendChild(img); } });
     const avatarSizeLabel = document.createElement('label'); avatarSizeLabel.textContent='Rozmiar awatara: '; avatarSizeLabel.style.display='block'; avatarSizeLabel.style.margin='8px 0 4px';
     const avatarSizeValue = document.createElement('span'); avatarSizeValue.textContent = (person.avatarSize || 36) + ' px';
     const avatarSizeInput = document.createElement('input'); avatarSizeInput.type='range'; avatarSizeInput.min='24'; avatarSizeInput.max='72'; avatarSizeInput.step='4'; avatarSizeInput.value=person.avatarSize || 36; avatarSizeInput.style.width='100%'; avatarSizeInput.addEventListener('input', ()=>{ avatarSizeValue.textContent = avatarSizeInput.value + ' px'; });
