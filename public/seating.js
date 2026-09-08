@@ -679,12 +679,23 @@
   searchBtn.addEventListener('click', ()=>{ const q = (searchInput.value||'').trim(); if (!q) return; highlightPerson(q); });
   clearBtn.addEventListener('click', ()=>{ searchInput.value=''; searchSuggestions.style.display='none'; Array.from(document.querySelectorAll('.table')).forEach(t=>t.classList.remove('highlight')); document.getElementById('seatingInfo').textContent = 'Kliknij stolik, aby przypisać listę gości (oddziel przecinkami). Dane zapisywane lokalnie w przeglądarce.'; });
 
+  let personHighlightTimer = null;
   function highlightPerson(name){ const all = buildIndex(); const found = all.find(i=> i.name.toLowerCase() === name.toLowerCase() || i.name.toLowerCase().includes(name.toLowerCase())); if (!found){ alert('Nie znaleziono osoby'); return; }
     // find table element
     const tname = found.table; const num = parseInt(tname.replace('t',''),10); const el = document.getElementById(tname) || document.getElementById('t'+num);
     if (el){ // highlight
       Array.from(document.querySelectorAll('.table')).forEach(t=>t.classList.remove('highlight'));
-      el.classList.add('highlight'); try{ el.scrollIntoView({behavior:'smooth',block:'center',inline:'center'}); }catch(e){}
+      Array.from(document.querySelectorAll('.person')).forEach(p=>p.classList.remove('person-highlight'));
+      const people = Array.from(el.querySelectorAll('.person'));
+      const personIndex = (assignments[found.table] || []).findIndex(item => ((typeof item === 'string' ? item : item && item.name) || '').toLowerCase() === found.name.toLowerCase());
+      const personEl = personIndex >= 0 ? people[personIndex] : null;
+      el.classList.add('highlight');
+      if (personEl){
+        personEl.classList.add('person-highlight');
+        if (personHighlightTimer) clearTimeout(personHighlightTimer);
+        personHighlightTimer = setTimeout(()=> personEl.classList.remove('person-highlight'), 5000);
+      }
+      try{ el.scrollIntoView({behavior:'smooth',block:'center',inline:'center'}); }catch(e){}
       document.getElementById('seatingInfo').textContent = `Znaleziono ${found.name} przy stoliku ${num}`;
     }
   }

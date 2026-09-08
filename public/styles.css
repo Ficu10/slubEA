@@ -65,6 +65,7 @@ footer{display:flex;justify-content:center;padding:18px 0;color:var(--muted);fon
 .seating-controls input{border:1px solid rgba(16,52,36,0.06);padding:8px;border-radius:8px}
 .hall{max-width:100%;}
 .table .names{white-space:pre-line}
+.person-highlight{box-shadow:0 0 0 6px rgba(47,111,78,.55),0 0 24px 10px rgba(122,165,106,.8)!important;z-index:20;transition:box-shadow .2s ease}
 .seating-controls{flex-wrap:wrap}
 .seating-controls>div:first-child{min-width:180px}
 .seating-controls button,.seating-controls a{white-space:nowrap}
