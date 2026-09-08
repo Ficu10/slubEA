@@ -221,7 +221,8 @@
       const label = document.createElement('div'); label.className = 'person-label'; label.textContent = name; label.style.display='none';
       person.addEventListener('mouseenter', ()=> label.style.display = 'block');
       person.addEventListener('mouseleave', ()=> label.style.display = 'none');
-      person.addEventListener('click', (ev)=>{ if (ev.currentTarget && ev.currentTarget._justTapped){ ev.currentTarget._justTapped = false; ev.stopPropagation(); return; } ev.stopPropagation(); onPersonClick(tableId, i); });
+      person.addEventListener('click', (ev)=>{ if (ev.currentTarget && ev.currentTarget._justTapped){ ev.currentTarget._justTapped = false; ev.stopPropagation(); return; } ev.stopPropagation(); if (isAdmin()) selectAvatar(person, tableId, i); else onPersonClick(tableId, i); });
+      person.addEventListener('dblclick', (ev)=>{ ev.preventDefault(); ev.stopPropagation(); if (isAdmin()) onPersonClick(tableId, i); });
       // make avatar draggable for admins (supports moving between tables and reposition inside same table)
       makePersonDraggable(person, tableId, i);
       tableEl.appendChild(person); tableEl.appendChild(label);
@@ -252,7 +253,7 @@
         if (!dragging){ // treat as click
           // prevent duplicate click handler firing (pointerup + click) by marking element
           try{ el._justTapped = true; setTimeout(()=>{ try{ el._justTapped = false; }catch(_){ } }, 300); }catch(_){ }
-          try{ onPersonClick(tableId, idx); }catch(_){ }
+          try{ if (isAdmin()) selectAvatar(el, tableId, idx); else onPersonClick(tableId, idx); }catch(_){ }
           return;
         }
         // was dragging: handle drop
@@ -318,12 +319,56 @@
       let moved = false;
       const onMouseMove = (e)=>{ const dx = e.clientX - startX; const dy = e.clientY - startY; if (!dragging && Math.hypot(dx,dy) > 6){ dragging = true; moved = true; ghost = el.cloneNode(true); ghost.style.position='fixed'; ghost.style.left = (e.clientX - 18) + 'px'; ghost.style.top = (e.clientY - 18) + 'px'; ghost.style.pointerEvents='none'; ghost.style.opacity='0.9'; ghost.style.zIndex = 20000; document.body.appendChild(ghost); el.style.opacity='0.4'; }
         if (dragging && ghost){ ghost.style.left = (e.clientX - 18) + 'px'; ghost.style.top = (e.clientY - 18) + 'px'; } };
-      const onMouseUp = (e)=>{ document.removeEventListener('mousemove', onMouseMove); document.removeEventListener('mouseup', onMouseUp); if (!dragging){ try{ onPersonClick(tableId, idx); }catch(_){ } return; } el.style.opacity='1'; const allTables = Array.from(document.querySelectorAll('.table')); let targetTable = null; for (const t of allTables){ const r = t.getBoundingClientRect(); if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom){ targetTable = t; break; } } if (targetTable){ const toId = targetTable.id; const fromArr = assignments[tableId] || []; let item = typeof fromArr[idx] !== 'undefined' ? fromArr[idx] : null; if (!item){ const title = el.title || null; if (title){ const names = fromArr.map(it=> typeof it==='string'? it : (it && it.name)); const fi = names.indexOf(title); if (fi >= 0) item = fromArr[fi]; } if (!item) item = fromArr[0] || null; } if (!item){ cleanup(); return; } if (toId && toId !== tableId){ const remIndex = fromArr.indexOf(item); let removed = null; if (remIndex >= 0){ removed = fromArr.splice(remIndex,1)[0]; } if (fromArr.length) assignments[tableId] = fromArr; else delete assignments[tableId]; assignments[toId] = assignments[toId] || []; if (removed && removed.pos) delete removed.pos; assignments[toId].push(removed); try{ window._lastDrop = { from: tableId, to: toId, moved: true, removedName: (removed && (removed.name||removed||'')).toString(), time: Date.now() }; }catch(_){ } pushHistory(); saveToServer(); renderAll(); } else { const tRect = targetTable.getBoundingClientRect(); const relX = ((e.clientX - tRect.left) / tRect.width) * 100; const relY = ((e.clientY - tRect.top) / tRect.height) * 100; const snapped = snapAvatarPosition(relX, relY); const xPct = snapped.x; const yPct = snapped.y; if (typeof fromArr[idx] !== 'undefined'){ const existing = fromArr[idx]; if (typeof existing === 'string'){ fromArr[idx] = { name: existing, pos: { x: xPct, y: yPct } }; } else { existing.pos = { x: xPct, y: yPct }; } assignments[tableId] = fromArr; } else { const obj = (typeof item === 'string')? { name: item } : item; obj.pos = { x: xPct, y: yPct }; assignments[tableId] = assignments[tableId] || []; assignments[tableId].push(obj); } try{ window._lastDrop = { from: tableId, to: tableId, moved: false, idx: idx, pos: { x: xPct, y: yPct }, time: Date.now() }; }catch(_){ } pushHistory(); saveToServer(); renderAll(); } } };
+      const onMouseUp = (e)=>{ document.removeEventListener('mousemove', onMouseMove); document.removeEventListener('mouseup', onMouseUp); if (!dragging){ try{ if (isAdmin()) selectAvatar(el, tableId, idx); else onPersonClick(tableId, idx); }catch(_){ } return; } el.style.opacity='1'; const allTables = Array.from(document.querySelectorAll('.table')); let targetTable = null; for (const t of allTables){ const r = t.getBoundingClientRect(); if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom){ targetTable = t; break; } } if (targetTable){ const toId = targetTable.id; const fromArr = assignments[tableId] || []; let item = typeof fromArr[idx] !== 'undefined' ? fromArr[idx] : null; if (!item){ const title = el.title || null; if (title){ const names = fromArr.map(it=> typeof it==='string'? it : (it && it.name)); const fi = names.indexOf(title); if (fi >= 0) item = fromArr[fi]; } if (!item) item = fromArr[0] || null; } if (!item){ cleanup(); return; } if (toId && toId !== tableId){ const remIndex = fromArr.indexOf(item); let removed = null; if (remIndex >= 0){ removed = fromArr.splice(remIndex,1)[0]; } if (fromArr.length) assignments[tableId] = fromArr; else delete assignments[tableId]; assignments[toId] = assignments[toId] || []; if (removed && removed.pos) delete removed.pos; assignments[toId].push(removed); try{ window._lastDrop = { from: tableId, to: toId, moved: true, removedName: (removed && (removed.name||removed||'')).toString(), time: Date.now() }; }catch(_){ } pushHistory(); saveToServer(); renderAll(); } else { const tRect = targetTable.getBoundingClientRect(); const relX = ((e.clientX - tRect.left) / tRect.width) * 100; const relY = ((e.clientY - tRect.top) / tRect.height) * 100; const snapped = snapAvatarPosition(relX, relY); const xPct = snapped.x; const yPct = snapped.y; if (typeof fromArr[idx] !== 'undefined'){ const existing = fromArr[idx]; if (typeof existing === 'string'){ fromArr[idx] = { name: existing, pos: { x: xPct, y: yPct } }; } else { existing.pos = { x: xPct, y: yPct }; } assignments[tableId] = fromArr; } else { const obj = (typeof item === 'string')? { name: item } : item; obj.pos = { x: xPct, y: yPct }; assignments[tableId] = assignments[tableId] || []; assignments[tableId].push(obj); } try{ window._lastDrop = { from: tableId, to: tableId, moved: false, idx: idx, pos: { x: xPct, y: yPct }, time: Date.now() }; }catch(_){ } pushHistory(); saveToServer(); renderAll(); } } };
       document.addEventListener('mousemove', onMouseMove); document.addEventListener('mouseup', onMouseUp);
     });
   }
 
+  let avatarControls = null;
+  function removeAvatarControls(){
+    if (avatarControls && avatarControls.parentNode) avatarControls.parentNode.removeChild(avatarControls);
+    avatarControls = null;
+  }
+
+  function selectAvatar(element, tableId, idx){
+    if (!isAdmin()) return;
+    removeAvatarControls();
+    avatarControls = document.createElement('div');
+    avatarControls.className = 'avatar-controls';
+    Object.assign(avatarControls.style, { position:'fixed', zIndex:22000, display:'grid', gridTemplateColumns:'repeat(3,34px)', gridTemplateRows:'repeat(2,34px)', gap:'3px', padding:'4px', background:'#fff', border:'1px solid rgba(47,111,78,.25)', borderRadius:'10px', boxShadow:'0 5px 18px rgba(20,34,26,.18)' });
+    const buttons = [
+      ['↑', 0, -1, 1, 2], ['←', -1, 0, 2, 1], ['↓', 0, 1, 2, 2], ['→', 1, 0, 2, 3]
+    ];
+    buttons.forEach(([label, dx, dy, row, column])=>{
+      const button = document.createElement('button');
+      button.type = 'button'; button.textContent = label; button.title = 'Przesuń awatar';
+      Object.assign(button.style, { gridRow:row, gridColumn:column, padding:'2px', minHeight:'30px', lineHeight:'1', fontSize:'18px' });
+      button.addEventListener('click', (event)=>{ event.stopPropagation(); nudgeAvatar(element, tableId, idx, dx, dy); });
+      avatarControls.appendChild(button);
+    });
+    document.body.appendChild(avatarControls);
+    const rect = element.getBoundingClientRect();
+    avatarControls.style.left = Math.max(6, Math.min(window.innerWidth - 116, rect.left + rect.width / 2 - 58)) + 'px';
+    avatarControls.style.top = Math.max(6, rect.top - 78) + 'px';
+  }
+
+  function nudgeAvatar(element, tableId, idx, dx, dy){
+    const list = assignments[tableId] || [];
+    let item = list[idx];
+    if (!item) return;
+    if (typeof item === 'string'){ item = { name:item }; list[idx] = item; }
+    const pos = item.pos || { x:50, y:50 };
+    const next = snapAvatarPosition((Number(pos.x) || 50) + dx * 10, (Number(pos.y) || 50) + dy * 10);
+    item.pos = next;
+    assignments[tableId] = list;
+    element.style.left = next.x + '%'; element.style.top = next.y + '%';
+    saveToServer();
+    const rect = element.getBoundingClientRect();
+    if (avatarControls){ avatarControls.style.left = Math.max(6, Math.min(window.innerWidth - 116, rect.left + rect.width / 2 - 58)) + 'px'; avatarControls.style.top = Math.max(6, rect.top - 78) + 'px'; }
+  }
+
   function onPersonClick(tableId, idx){
+    removeAvatarControls();
     const list = assignments[tableId] || [];
     const item = list[idx]; if (!item) return;
     const person = (typeof item === 'string')? { name: item, info: '' } : JSON.parse(JSON.stringify(item || { name: '' }));
@@ -436,7 +481,7 @@
 
   function createBtn(text, title, onClick){ const b = document.createElement('button'); b.textContent = text; b.title = title; b.className='btn-outline'; b.addEventListener('click',(e)=>{ e.stopPropagation(); onClick(); removeToolbar(); }); return b; }
   function removeToolbar(){ if (toolbar && toolbar.parentNode) toolbar.parentNode.removeChild(toolbar); toolbar = null; selectedIndex = null; }
-  document.addEventListener('click', ()=> removeToolbar());
+  document.addEventListener('click', ()=>{ removeToolbar(); removeAvatarControls(); });
 
   function changeSize(index, factor){ const p = positions[index]; if (!p) return; if (p.shape==='rect'){ p.w = Math.max(6, Math.min(80, (p.w||28)*factor)); p.h = Math.max(6, Math.min(60, (p.h||16)*factor)); } else { p.size = Math.max(6, Math.min(50, (p.size||14)*factor)); } saveToServer(); renderAll(); }
   function toggleShape(index){ const p = positions[index]; if (!p) return; p.shape = (p.shape==='rect')? 'circle':'rect'; // keep existing size fields
