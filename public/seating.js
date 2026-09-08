@@ -31,8 +31,7 @@
   let positions = [];
   let assignments = {};
   let drawings = [];
-  // DEBUG: allow dragging for non-admins to help testing (set to false to require admin)
-  let allowDragForGuests = true;
+  let allowDragForGuests = false;
   let history = { past: [], future: [] };
   let snapToGrid = false;
   let editMode = 'tables'; // 'tables' or 'people'
