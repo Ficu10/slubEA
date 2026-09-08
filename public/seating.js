@@ -673,7 +673,7 @@
   });
 
   function renderSuggestions(list){ searchSuggestions.innerHTML=''; if (!list.length){ searchSuggestions.style.display='none'; return; } list.forEach(item=>{
-    const li = document.createElement('li'); li.style.padding='6px'; li.style.cursor='pointer'; li.textContent = item.name + ' — ' + item.table.replace('t',''); li.addEventListener('click', ()=>{ searchInput.value = item.name; searchSuggestions.style.display='none'; highlightPerson(item.name); }); searchSuggestions.appendChild(li);
+    const li = document.createElement('li'); li.style.padding='6px'; li.style.cursor='pointer'; li.style.touchAction='manipulation'; li.setAttribute('role','option'); li.textContent = item.name + ' — ' + item.table.replace('t',''); li.addEventListener('pointerup', (event)=>{ event.preventDefault(); event.stopPropagation(); searchInput.value = item.name; searchSuggestions.style.display='none'; highlightPerson(item.name); }); searchSuggestions.appendChild(li);
   }); searchSuggestions.style.display='block'; }
 
   searchBtn.addEventListener('click', ()=>{ const q = (searchInput.value||'').trim(); if (!q) return; highlightPerson(q); });
