@@ -677,7 +677,7 @@
   }); searchSuggestions.style.display='block'; }
 
   searchBtn.addEventListener('click', ()=>{ const q = (searchInput.value||'').trim(); if (!q) return; highlightPerson(q); });
-  clearBtn.addEventListener('click', ()=>{ searchInput.value=''; searchSuggestions.style.display='none'; Array.from(document.querySelectorAll('.table')).forEach(t=>t.classList.remove('highlight')); document.getElementById('seatingInfo').textContent = 'Kliknij stolik, aby przypisać listę gości (oddziel przecinkami). Dane zapisywane lokalnie w przeglądarce.'; });
+  clearBtn.addEventListener('click', ()=>{ searchInput.value=''; searchSuggestions.style.display='none'; Array.from(document.querySelectorAll('.table')).forEach(t=>t.classList.remove('highlight')); Array.from(document.querySelectorAll('.person')).forEach(p=>p.classList.remove('person-highlight')); if (personHighlightTimer) clearTimeout(personHighlightTimer); document.getElementById('seatingInfo').textContent = 'Kliknij stolik, aby przypisać listę gości (oddziel przecinkami). Dane zapisywane lokalnie w przeglądarce.'; });
 
   let personHighlightTimer = null;
   function highlightPerson(name){ const all = buildIndex(); const found = all.find(i=> i.name.toLowerCase() === name.toLowerCase() || i.name.toLowerCase().includes(name.toLowerCase())); if (!found){ alert('Nie znaleziono osoby'); return; }
@@ -695,7 +695,16 @@
         if (personHighlightTimer) clearTimeout(personHighlightTimer);
         personHighlightTimer = setTimeout(()=> personEl.classList.remove('person-highlight'), 5000);
       }
-      try{ el.scrollIntoView({behavior:'smooth',block:'center',inline:'center'}); }catch(e){}
+      try{
+        if (window.matchMedia('(max-width: 520px)').matches){
+          const target = personEl || el;
+          const rect = target.getBoundingClientRect();
+          const targetTop = Math.max(0, window.scrollY + rect.top - (window.innerHeight * 0.42));
+          window.scrollTo({ top: targetTop, behavior:'smooth' });
+        } else {
+          el.scrollIntoView({behavior:'smooth',block:'center',inline:'center'});
+        }
+      }catch(e){}
       document.getElementById('seatingInfo').textContent = `Znaleziono ${found.name} przy stoliku ${num}`;
     }
   }
