@@ -223,6 +223,7 @@
             assignments[toId] = assignments[toId] || [];
             if (removed && removed.pos) delete removed.pos;
             assignments[toId].push(removed);
+            try{ window._lastDrop = { from: tableId, to: toId, moved: true, removedName: (removed && (removed.name||removed||'')).toString(), time: Date.now() }; }catch(_){ }
             pushHistory(); saveToServer(); renderAll();
           } else { // dropped inside same table: set pos in-place when possible
             const tRect = targetTable.getBoundingClientRect(); const relX = ((e.clientX - tRect.left) / tRect.width) * 100; const relY = ((e.clientY - tRect.top) / tRect.height) * 100;
@@ -242,6 +243,7 @@
               assignments[tableId] = assignments[tableId] || [];
               assignments[tableId].push(obj);
             }
+            try{ window._lastDrop = { from: tableId, to: tableId, moved: false, idx: idx, pos: { x: xPct, y: yPct }, time: Date.now() }; }catch(_){ }
             pushHistory(); saveToServer(); renderAll();
           }
         }
