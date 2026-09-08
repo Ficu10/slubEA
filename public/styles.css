@@ -91,4 +91,5 @@ footer{display:flex;justify-content:center;padding:18px 0;color:var(--muted);fon
 	.seating-controls #clearBtn,.seating-controls>a{flex:1 1 calc(50% - 26px)}
 	#tableToolbar{position:fixed!important;left:8px!important;right:8px!important;bottom:10px!important;top:auto!important;max-height:42vh;overflow:auto;flex-wrap:wrap;justify-content:center;box-shadow:0 10px 30px rgba(20,34,26,.2);border-radius:12px!important}
 	#tableToolbar button{flex:0 1 auto}
+	.save-seating-btn{flex:1 1 100%!important}
 }

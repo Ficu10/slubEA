@@ -36,6 +36,8 @@
   let history = { past: [], future: [] };
   let snapToGrid = false;
   let editMode = 'tables'; // 'tables' or 'people'
+  let hasUnsavedChanges = false;
+  let saveButton = null;
 
   // default template (used if server has none)
   const defaultPositions = [
@@ -47,6 +49,12 @@
   // UTIL
   function isAdmin(){ return !!localStorage.getItem('adminToken'); }
   function saveLocal(){ localStorage.setItem(seatingKey, JSON.stringify({ positions, assignments, drawings })); }
+  function updateSaveButton(){
+    if (!saveButton) return;
+    saveButton.disabled = !hasUnsavedChanges;
+    saveButton.textContent = hasUnsavedChanges ? 'Zapisz zmiany' : 'Zapisano';
+    saveButton.style.opacity = hasUnsavedChanges ? '1' : '0.65';
+  }
 
   async function loadFromServer(){
     // Prefer local copy if it exists and has positions — this avoids accidental server wipes
@@ -76,9 +84,27 @@
     if (!token){ saveLocal(); return; }
     // avoid accidentally overwriting server with empty seating (require explicit admin action)
     if (!positions || positions.length === 0){ console.warn('Not saving empty positions to server'); saveLocal(); return; }
+    hasUnsavedChanges = true;
+    saveLocal();
+    updateSaveButton();
+  }
+
+  async function saveChanges(){
+    if (!isAdmin() || !hasUnsavedChanges) return;
+    const token = localStorage.getItem('adminToken');
+    const body = { positions, assignments, drawings };
     try{
-      await fetch(API_BASE + '/api/seating', { method:'POST', headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+token }, body: JSON.stringify(body) });
-    }catch(e){ saveLocal(); }
+      saveButton.disabled = true;
+      saveButton.textContent = 'Zapisywanie...';
+      const response = await fetch(API_BASE + '/api/seating', { method:'POST', headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+token }, body: JSON.stringify(body) });
+      if (!response.ok) throw new Error('save_failed');
+      hasUnsavedChanges = false;
+      updateSaveButton();
+    }catch(e){
+      hasUnsavedChanges = true;
+      updateSaveButton();
+      alert('Nie udało się zapisać zmian. Spróbuj ponownie.');
+    }
   }
 
   function pushHistory(){
@@ -602,6 +628,7 @@
       if (loginBtn) loginBtn.remove();
       ensureAddButton();
       ensureEditModeButton();
+      ensureSaveButton();
       return;
     }
     if (document.getElementById('addTableBtn') || loginBtn) return;
@@ -633,6 +660,16 @@
       }
     });
     getControls().appendChild(btn);
+  }
+
+  function ensureSaveButton(){
+    if (saveButton || !isAdmin()) return;
+    saveButton = document.createElement('button');
+    saveButton.id = 'saveSeatingBtn';
+    saveButton.className = 'btn-outline save-seating-btn';
+    saveButton.addEventListener('click', saveChanges);
+    getControls().appendChild(saveButton);
+    updateSaveButton();
   }
 
   
