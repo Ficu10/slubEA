@@ -9,6 +9,24 @@
 
   const seatingKey = 'wesele_seating_v1';
   const API_BASE = window.API_URL || '';
+  
+  // Convenience restore: if the page is opened with ?restoreLocal=1
+  // fetch server data and populate localStorage so users can recover
+  // their seating data in browsers where localStorage is missing.
+  try{
+    if (location && location.search && location.search.indexOf('restoreLocal=1') >= 0){
+      (async ()=>{
+        try{
+          const r = await fetch(API_BASE + '/api/seating');
+          if (!r.ok) return;
+          const j = await r.json();
+          if (j && Array.isArray(j.positions) && j.positions.length){
+            try{ localStorage.setItem(seatingKey, JSON.stringify({ positions: j.positions, assignments: j.assignments||{}, drawings: j.drawings||[] })); }catch(e){}
+          }
+        }catch(_){ }
+      })();
+    }
+  }catch(_){ }
 
   let positions = [];
   let assignments = {};
