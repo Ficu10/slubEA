@@ -685,6 +685,7 @@
       if (loginBtn) loginBtn.remove();
       ensureAddButton();
       ensureEditModeButton();
+      ensureGlobalAvatarSizeControl();
       ensureSaveButton();
       return;
     }
@@ -727,6 +728,35 @@
     saveButton.addEventListener('click', saveChanges);
     getControls().appendChild(saveButton);
     updateSaveButton();
+  }
+
+  function ensureGlobalAvatarSizeControl(){
+    if (!isAdmin() || document.getElementById('globalAvatarSizeControl')) return;
+    const wrapper = document.createElement('label');
+    wrapper.id = 'globalAvatarSizeControl';
+    wrapper.className = 'global-avatar-size-control';
+    wrapper.textContent = 'Awatary: ';
+    const value = document.createElement('span');
+    const input = document.createElement('input');
+    input.type = 'range'; input.min = '24'; input.max = '72'; input.step = '4'; input.value = '36';
+    input.title = 'Ustaw rozmiar wszystkich awatarów';
+    const updateLabel = ()=>{ value.textContent = input.value + ' px'; };
+    input.addEventListener('input', updateLabel);
+    input.addEventListener('change', ()=>{
+      const size = Number(input.value) || 36;
+      pushHistory();
+      Object.keys(assignments).forEach(key=>{
+        assignments[key] = (assignments[key] || []).map(item=>{
+          if (typeof item === 'string') return { name:item, avatarSize:size };
+          return Object.assign({}, item, { avatarSize:size });
+        });
+      });
+      saveToServer();
+      renderAll();
+    });
+    wrapper.appendChild(value); wrapper.appendChild(input);
+    getControls().appendChild(wrapper);
+    updateLabel();
   }
 
   
