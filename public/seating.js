@@ -64,12 +64,8 @@
   }
 
   async function loadFromServer(){
-    // Prefer local copy if it exists and has positions — this avoids accidental server wipes
+    // The server is the shared source of truth; localStorage is only an offline fallback.
     try{
-      const localRaw = (()=>{ try{ return localStorage.getItem(seatingKey); }catch(e){ return null } })();
-      if (localRaw){ try{ const j = JSON.parse(localRaw); if (j && Array.isArray(j.positions) && j.positions.length){ positions = j.positions; assignments = j.assignments || {}; drawings = j.drawings || []; return; } }catch(_){ /* ignore parse errors */ } }
-
-      // otherwise try server
       const res = await fetch(API_BASE + '/api/seating');
       if (!res.ok) throw new Error('no-server');
       const json = await res.json();
@@ -77,6 +73,8 @@
       positions = serverPositions && serverPositions.length ? serverPositions : defaultPositions.slice();
       assignments = json.assignments || {};
       drawings = json.drawings || [];
+      hasUnsavedChanges = false;
+      saveLocal();
       return;
     }catch(e){
       // fallback to localStorage or defaults
