@@ -55,11 +55,22 @@ module.exports = async function (req, res) {
     }
 
     if (req.method === 'POST'){
-      // accept JSON body with { positions, assignments }
+      // Save shared assignments while preserving device-specific table positions.
       const payload = req.body || (await new Promise(r => {
         let data=''; req.on('data',c=>data+=c); req.on('end',()=>r(JSON.parse(data||'{}')));
       }));
-      const body = JSON.stringify(payload, null, 2);
+      let current = { positions: [], assignments: {}, drawings: [] };
+      try{
+        const existing = await s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: KEY }));
+        const chunks = [];
+        for await (const chunk of existing.Body) chunks.push(chunk);
+        current = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+      }catch(_){ }
+      const body = JSON.stringify({
+        positions: Array.isArray(payload.positions) ? payload.positions : (current.positions || []),
+        assignments: payload.assignments || {},
+        drawings: payload.drawings || current.drawings || []
+      }, null, 2);
       const cmd = new PutObjectCommand({ Bucket: BUCKET, Key: KEY, Body: body, ContentType: 'application/json' });
       await s3.send(cmd);
       return res.status(200).json({ success:true });

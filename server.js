@@ -208,7 +208,13 @@ app.post('/api/seating', (req, res) => {
   const token = parts.length === 2 && parts[0] === 'Bearer' ? parts[1] : null;
   if (!token || !sessions.has(token)) return res.status(403).json({ error: 'forbidden' });
   const body = req.body || {};
-  const toSave = { positions: body.positions || [], assignments: body.assignments || {} };
+  const toSave = { positions: body.positions || [], assignments: body.assignments || {}, drawings: body.drawings || [] };
+  if (!Object.prototype.hasOwnProperty.call(body, 'positions')) {
+    try {
+      const existing = JSON.parse(fs.readFileSync(SEATING_FILE, 'utf8'));
+      toSave.positions = existing.positions || [];
+    } catch (_) { }
+  }
   fs.writeFile(SEATING_FILE, JSON.stringify(toSave, null, 2), (err) => {
     if (err) return res.status(500).json({ error: 'unable to save seating' });
     res.json({ success: true });
