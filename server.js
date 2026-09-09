@@ -123,12 +123,32 @@ async function listDriveFiles(folderId){
 // seating persistent storage
 const DATA_DIR = path.join(__dirname, 'data');
 const SEATING_FILE = path.join(DATA_DIR, 'seating.json');
+const CHAT_FILE = path.join(DATA_DIR, 'chat.json');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 // ensure seating file exists
 if (!fs.existsSync(SEATING_FILE)) {
   const defaultSeating = { positions: [], assignments: {} };
   fs.writeFileSync(SEATING_FILE, JSON.stringify(defaultSeating, null, 2));
 }
+if (!fs.existsSync(CHAT_FILE)) fs.writeFileSync(CHAT_FILE, JSON.stringify({ messages: [] }, null, 2));
+
+app.get('/api/chat', (req, res) => {
+  try { const data = JSON.parse(fs.readFileSync(CHAT_FILE, 'utf8')); return res.json({ messages: Array.isArray(data.messages) ? data.messages : [] }); }
+  catch (_) { return res.status(500).json({ error: 'unable to read chat' }); }
+});
+
+app.post('/api/chat', (req, res) => {
+  const author = String((req.body || {}).author || '').trim();
+  const message = String((req.body || {}).message || '').trim();
+  if (!author || !message) return res.status(400).json({ error: 'missing_fields' });
+  try {
+    const data = JSON.parse(fs.readFileSync(CHAT_FILE, 'utf8'));
+    const messages = Array.isArray(data.messages) ? data.messages : [];
+    messages.push({ author: author.slice(0, 120), message: message.slice(0, 500), createdAt: new Date().toISOString() });
+    fs.writeFileSync(CHAT_FILE, JSON.stringify({ messages: messages.slice(-200) }, null, 2));
+    return res.json({ success: true });
+  } catch (_) { return res.status(500).json({ error: 'unable to save chat' }); }
+});
 
 app.post('/api/upload', upload.array('files', 50), async (req, res, next) => {
   try {

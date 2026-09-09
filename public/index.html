@@ -26,6 +26,39 @@
       <p>Ceremonia ślubna: Kościół św. Pawła Apostoła, Zabrze-Pawłów, ul. gen. Władysława Sikorskiego 67b.</p>
     </section>
 
+    <section class="info wedding-details">
+      <details>
+        <summary>Plan dnia</summary>
+        <div class="schedule-list">
+          <div><strong>13:00</strong><span>Ślub</span></div><div><strong>14:00</strong><span>Życzenia</span></div>
+          <div><strong>15:00</strong><span>Pierwszy taniec</span></div><div><strong>16:00</strong><span>Obiad</span></div>
+          <div><strong>17:00</strong><span>Zdjęcia</span></div><div><strong>18:00</strong><span>Tort</span></div>
+          <div><strong>19:00</strong><span>Kolacja I</span></div><div><strong>20:00</strong><span>Sztuczne ognie</span></div>
+          <div><strong>22:00</strong><span>Kolacja II</span></div><div><strong>24:00</strong><span>Oczepiny</span></div>
+          <div><strong>02:30</strong><span>Kolacja III</span></div><div><strong>05:00</strong><span>Koniec imprezy</span></div>
+        </div>
+      </details>
+    </section>
+
+    <section class="info wedding-details">
+      <details>
+        <summary>Menu weselne</summary>
+        <div class="menu-list"><p><strong>Obiad:</strong> rosół, kotlet drobiowy, ziemniaki, surówki</p><p><strong>Dania ciepłe:</strong> barszcz z pasztecikiem, żurek, bogracz</p><p><strong>Zimna płyta:</strong> wędliny, sery, sałatki, pieczywo</p><p><strong>Desery:</strong> tort weselny, ciasta, owoce</p><p><strong>Napoje:</strong> kawa, herbata, soki, woda</p></div>
+      </details>
+    </section>
+
+    <section class="info gallery-links">
+      <h2>Zdjęcia i filmy</h2>
+      <div><a class="btn-primary" href="/photos.html">Zdjęcia</a><a class="btn-primary" href="/videos.html">Filmy</a></div>
+    </section>
+
+    <section class="info wedding-chat">
+      <h2>Czat weselny</h2>
+      <p class="chat-note">Wybierz osobę ze stolika, zanim napiszesz wiadomość.</p>
+      <div class="chat-compose"><select id="chatAuthor"><option value="">Wybierz osobę</option></select><textarea id="chatMessage" rows="2" maxlength="500" placeholder="Napisz wiadomość..."></textarea><button id="chatSend" type="button">Wyślij</button></div>
+      <div id="chatMessages" class="chat-messages">Ładowanie wiadomości...</div>
+    </section>
+
     <section class="uploader">
       <h2>Wrzuć zdjęcia i filmy</h2>
       
@@ -36,19 +69,6 @@
       <div id="uploadStatus"></div>
     </section>
 
-    <section class="gallery">
-      <h2>Galeria</h2>
-      <div class="gallery-sections">
-        <div class="photos">
-          <h3>Zdjęcia</h3>
-          <div id="galleryPhotos" class="galleryGrid">Ładowanie...</div>
-        </div>
-        <div class="videos">
-          <h3>Filmy</h3>
-          <div id="galleryVideos" class="galleryGrid">Ładowanie...</div>
-        </div>
-      </div>
-    </section>
   </main>
 
   <footer>
@@ -62,6 +82,7 @@
     async function loadGallery(){
       const photosGrid = document.getElementById('galleryPhotos');
       const videosGrid = document.getElementById('galleryVideos');
+      if (!photosGrid || !videosGrid) return;
       photosGrid.innerHTML = '';
       videosGrid.innerHTML = '';
       let res;
@@ -192,6 +213,25 @@
     });
 
     loadGallery();
+
+    async function loadChatPeople(){
+      try{
+        const response = await fetch(API_BASE + '/api/seating');
+        const data = await response.json();
+        const select = document.getElementById('chatAuthor');
+        Object.keys(data.assignments || {}).forEach(tableId => (data.assignments[tableId] || []).forEach(item => {
+          const name = typeof item === 'string' ? item : item && item.name;
+          if (!name) return;
+          const option = document.createElement('option'); option.value = name; option.textContent = name + ' (' + tableId.replace('t','Stolik ') + ')'; select.appendChild(option);
+        }));
+      }catch(_){ document.getElementById('chatAuthor').innerHTML = '<option value="">Nie udało się pobrać listy osób</option>'; }
+    }
+    async function loadChat(){
+      const box = document.getElementById('chatMessages');
+      try{ const response = await fetch(API_BASE + '/api/chat'); const data = await response.json(); box.innerHTML=''; (data.messages || []).slice(-100).forEach(item=>{ const row=document.createElement('div'); row.className='chat-message'; const author=document.createElement('strong'); author.textContent=item.author; const text=document.createElement('span'); text.textContent=item.message; row.append(author,text); box.appendChild(row); }); box.scrollTop=box.scrollHeight; }catch(_){ box.textContent='Czat jest chwilowo niedostępny.'; }
+    }
+    document.getElementById('chatSend').addEventListener('click', async ()=>{ const author=document.getElementById('chatAuthor').value; const message=document.getElementById('chatMessage').value.trim(); if(!author) return alert('Wybierz osobę.'); if(!message) return; const response=await fetch(API_BASE+'/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({author,message})}); if(response.ok){document.getElementById('chatMessage').value=''; loadChat();} else alert('Nie udało się wysłać wiadomości.'); });
+    loadChatPeople(); loadChat();
     // Fullscreen gallery modal with navigation (global scope)
     function showPreviewByKey(key){
       if (!window.GALLERY) return;
