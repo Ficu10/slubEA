@@ -400,6 +400,9 @@
     const title = document.createElement('div'); title.textContent = 'Edycja osoby'; title.style.fontWeight='700'; title.style.marginBottom='8px';
     const nameInput = document.createElement('input'); nameInput.value = person.name || ''; Object.assign(nameInput.style,{ width:'100%', padding:'8px', marginBottom:'8px' });
     const infoInput = document.createElement('textarea'); infoInput.placeholder='Informacje o osobie (np. dieta, rola)'; infoInput.value = person.info || ''; Object.assign(infoInput.style,{ width:'100%', padding:'8px', minHeight:'80px', boxSizing:'border-box', marginBottom:'8px' });
+    const tableLabel = document.createElement('label'); tableLabel.textContent='Stolik:'; tableLabel.style.display='block'; tableLabel.style.margin='8px 0 4px';
+    const tableSelect = document.createElement('select'); tableSelect.style.width='100%'; tableSelect.style.padding='8px';
+    positions.forEach((_, tableIndex)=>{ const option = document.createElement('option'); option.value = 't' + (tableIndex + 1); option.textContent = 'Stolik ' + (tableIndex + 1); if (option.value === tableId) option.selected = true; tableSelect.appendChild(option); });
     const imgWrap = document.createElement('div'); Object.assign(imgWrap.style,{ width:'120px', height:'120px', margin:'0 auto 8px', borderRadius:'8px', overflow:'hidden', background:'#f3f3f3', display:'flex',alignItems:'center',justifyContent:'center' });
     const img = document.createElement('img'); img.style.width='100%'; img.style.height='100%'; img.style.objectFit='cover'; if (avatarImageUrl(person.avatar)){ img.src = avatarImageUrl(person.avatar); img.draggable=false; img.style.webkitUserDrag='none'; img.style.userDrag='none'; }
     if (person.avatar) imgWrap.appendChild(img); else { const initials = (person.name||'').split(' ').map(s=>s[0]||'').slice(0,2).join('').toUpperCase()||'G'; const sp = document.createElement('div'); sp.textContent=initials; sp.style.fontSize='48px'; sp.style.fontWeight='700'; imgWrap.appendChild(sp); }
@@ -411,9 +414,9 @@
     const btnRow = document.createElement('div'); Object.assign(btnRow.style,{ display:'flex', gap:'8px', justifyContent:'flex-end', marginTop:'8px' });
     const cancel = document.createElement('button'); cancel.textContent='Anuluj'; cancel.className='btn-outline'; cancel.addEventListener('click', ()=> modal.remove());
     const del = document.createElement('button'); del.textContent='Usuń'; del.className='btn-outline'; del.style.background='#c0392b'; del.style.color='#fff'; del.addEventListener('click', ()=>{ if (confirm('Usunąć osobę?')){ list.splice(idx,1); assignments[tableId] = list.length? list : undefined; pushHistory(); saveToServer(); renderAll(); modal.remove(); } });
-    const save = document.createElement('button'); save.textContent='Zapisz'; save.className='btn-outline'; save.style.background='var(--green)'; save.style.color='#fff'; save.addEventListener('click', ()=>{ const nm = (nameInput.value||'').trim(); if (!nm){ alert('Podaj imię'); return; } const newObj = { name: nm, info: (infoInput.value||'').trim(), avatarSize: Number(avatarSizeInput.value) || 36 }; if (person.avatar) newObj.avatar = person.avatar; if (person.pos) newObj.pos = person.pos; list[idx] = newObj; assignments[tableId] = list.length? list : undefined; pushHistory(); saveToServer(); renderAll(); modal.remove(); });
+    const save = document.createElement('button'); save.textContent='Zapisz'; save.className='btn-outline'; save.style.background='var(--green)'; save.style.color='#fff'; save.addEventListener('click', ()=>{ const nm = (nameInput.value||'').trim(); if (!nm){ alert('Podaj imię'); return; } const newObj = { name: nm, info: (infoInput.value||'').trim(), avatarSize: Number(avatarSizeInput.value) || 36 }; if (person.avatar) newObj.avatar = person.avatar; if (person.pos) newObj.pos = person.pos; const targetTableId = tableSelect.value; list.splice(idx, 1); if (list.length) assignments[tableId] = list; else delete assignments[tableId]; assignments[targetTableId] = assignments[targetTableId] || []; assignments[targetTableId].push(newObj); pushHistory(); saveToServer(); renderAll(); modal.remove(); });
     btnRow.appendChild(del); btnRow.appendChild(cancel); btnRow.appendChild(save);
-    box.appendChild(title); box.appendChild(imgWrap); box.appendChild(changeAvatarBtn); box.appendChild(avatarSizeLabel); box.appendChild(avatarSizeInput); box.appendChild(nameInput); box.appendChild(infoInput); box.appendChild(btnRow); modal.appendChild(box); document.body.appendChild(modal);
+    box.appendChild(title); box.appendChild(imgWrap); box.appendChild(changeAvatarBtn); box.appendChild(avatarSizeLabel); box.appendChild(avatarSizeInput); box.appendChild(nameInput); box.appendChild(infoInput); box.appendChild(tableLabel); box.appendChild(tableSelect); box.appendChild(btnRow); modal.appendChild(box); document.body.appendChild(modal);
   }
 
   // selection toolbar
@@ -594,17 +597,27 @@
     const btnRow = document.createElement('div'); Object.assign(btnRow.style,{ display:'flex', gap:'8px', justifyContent:'flex-end', marginTop:'8px' });
     const del = document.createElement('button'); del.textContent='Usuń stolik'; del.className='btn-outline'; del.style.background='#c0392b'; del.style.color='#fff'; del.addEventListener('click', ()=>{ if (confirm('Usunąć ten stolik?')){ deleteTable(index); modal.remove(); } });
     const arrangePeople = document.createElement('button'); arrangePeople.textContent='Ustaw awatary symetrycznie'; arrangePeople.className='btn-outline'; arrangePeople.addEventListener('click', ()=>{ arrangePeopleSymmetrically(index); modal.remove(); });
+    const orderLabel = document.createElement('div'); orderLabel.textContent='Kolejność osób przy stoliku:'; orderLabel.style.fontWeight='600'; orderLabel.style.marginTop='10px';
+    const orderList = document.createElement('select'); orderList.size = Math.min(5, Math.max(2, (assignments['t'+(index+1)] || []).length)); orderList.style.width='100%'; orderList.style.padding='6px';
+    const orderControls = document.createElement('div'); orderControls.style.display='flex'; orderControls.style.gap='6px'; orderControls.style.marginTop='6px';
+    let orderedPeople = (assignments['t'+(index+1)] || []).slice();
+    function renderOrderList(){ orderList.innerHTML=''; orderedPeople.forEach((person, personIndex)=>{ const option = document.createElement('option'); option.value=personIndex; option.textContent=(personIndex + 1) + '. ' + ((typeof person === 'string') ? person : person.name || 'Osoba'); orderList.appendChild(option); }); }
+    const moveUp = document.createElement('button'); moveUp.textContent='↑'; moveUp.className='btn-outline'; moveUp.title='Przesuń osobę wyżej';
+    const moveDown = document.createElement('button'); moveDown.textContent='↓'; moveDown.className='btn-outline'; moveDown.title='Przesuń osobę niżej';
+    function moveSelected(direction){ const selected = Number(orderList.value); const target = selected + direction; if (!Number.isInteger(selected) || target < 0 || target >= orderedPeople.length) return; const item = orderedPeople.splice(selected,1)[0]; orderedPeople.splice(target,0,item); renderOrderList(); orderList.value=String(target); }
+    moveUp.addEventListener('click', ()=>moveSelected(-1)); moveDown.addEventListener('click', ()=>moveSelected(1));
+    orderControls.appendChild(moveUp); orderControls.appendChild(moveDown); renderOrderList();
     const cancel = document.createElement('button'); cancel.textContent='Anuluj'; cancel.className='btn-outline'; cancel.addEventListener('click', ()=> modal.remove());
     const save = document.createElement('button'); save.textContent='Zapisz'; save.className='btn-outline'; save.style.background='var(--green)'; save.style.color='#fff'; save.addEventListener('click', ()=>{
       const name = (nameInput.value||'').trim(); if (name) p.label = name; else delete p.label;
       if (p.shape==='rect'){ p.w = Math.max(6, Math.min(80, Number(sizeInput.value)||28)); p.h = Math.max(6, Math.min(60, Number(sizeInput2.value)||16)); delete p.size; } else { p.size = Math.max(6, Math.min(50, Number(sizeInput.value)||14)); delete p.w; delete p.h; }
-      positions[index] = p; pushHistory(); saveToServer(); renderAll(); modal.remove();
+      positions[index] = p; assignments['t'+(index+1)] = orderedPeople; pushHistory(); saveToServer(); renderAll(); modal.remove();
     });
     // live updates
     nameInput.addEventListener('input', ()=> previewInner.textContent = nameInput.value);
     sizeInput.addEventListener('input', previewShape); sizeInput2.addEventListener('input', previewShape);
     // assemble
-    box.appendChild(title); box.appendChild(nameInput); box.appendChild(shapeRow); box.appendChild(sizeWrap); box.appendChild(preview); btnRow.appendChild(del); btnRow.appendChild(arrangePeople); btnRow.appendChild(cancel); btnRow.appendChild(save); box.appendChild(btnRow); modal.appendChild(box); document.body.appendChild(modal);
+    box.appendChild(title); box.appendChild(nameInput); box.appendChild(shapeRow); box.appendChild(sizeWrap); box.appendChild(preview); if (orderedPeople.length){ box.appendChild(orderLabel); box.appendChild(orderList); box.appendChild(orderControls); } btnRow.appendChild(del); btnRow.appendChild(arrangePeople); btnRow.appendChild(cancel); btnRow.appendChild(save); box.appendChild(btnRow); modal.appendChild(box); document.body.appendChild(modal);
     // initialize
     refreshSizeControls(); previewShape();
   }
@@ -681,7 +694,6 @@
   }); searchSuggestions.style.display='block'; }
 
   searchBtn.addEventListener('click', ()=>{ const q = (searchInput.value||'').trim(); if (!q) return; highlightPerson(q); });
-  clearBtn.addEventListener('click', ()=>{ searchInput.value=''; searchSuggestions.style.display='none'; Array.from(document.querySelectorAll('.table')).forEach(t=>t.classList.remove('highlight')); Array.from(document.querySelectorAll('.person')).forEach(p=>p.classList.remove('person-highlight')); if (personHighlightTimer) clearTimeout(personHighlightTimer); document.getElementById('seatingInfo').textContent = 'Kliknij stolik, aby przypisać listę gości (oddziel przecinkami). Dane zapisywane lokalnie w przeglądarce.'; });
 
   let personHighlightTimer = null;
   function highlightPerson(name){ const all = buildIndex(); const found = all.find(i=> i.name.toLowerCase() === name.toLowerCase() || i.name.toLowerCase().includes(name.toLowerCase())); if (!found){ alert('Nie znaleziono osoby'); return; }
