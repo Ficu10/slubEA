@@ -98,3 +98,5 @@ footer{display:flex;justify-content:center;padding:18px 0;color:var(--muted);fon
 	.save-seating-btn{flex:1 1 100%!important}
 	.schedule-list{grid-template-columns:1fr}.chat-compose{grid-template-columns:1fr}.gallery-links a{flex:1;text-align:center}
 }
+
+.chat-message{align-items:flex-start!important}.chat-message-meta{display:flex;flex-direction:column;gap:2px;min-width:130px}.chat-message time{font-size:11px;color:var(--muted)}.chat-message>span{overflow-wrap:anywhere;flex:1}.chat-delete{padding:5px 8px;min-height:30px;background:#c23333;box-shadow:none;font-size:12px}

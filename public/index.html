@@ -55,7 +55,7 @@
     <section class="info wedding-chat">
       <h2>Czat weselny</h2>
       <p class="chat-note">Wybierz osobę ze stolika, zanim napiszesz wiadomość.</p>
-      <div class="chat-compose"><select id="chatAuthor"><option value="">Wybierz osobę</option></select><textarea id="chatMessage" rows="2" maxlength="500" placeholder="Napisz wiadomość..."></textarea><button id="chatSend" type="button">Wyślij</button></div>
+      <div class="chat-compose"><select id="chatAuthor"><option value="">Kto pisze?</option></select><textarea id="chatMessage" rows="2" maxlength="500" placeholder="Napisz wiadomość..."></textarea><button id="chatSend" type="button">Wyślij</button></div>
       <div id="chatMessages" class="chat-messages">Ładowanie wiadomości...</div>
     </section>
 
@@ -228,7 +228,7 @@
     }
     async function loadChat(){
       const box = document.getElementById('chatMessages');
-      try{ const response = await fetch(API_BASE + '/api/chat'); const data = await response.json(); box.innerHTML=''; (data.messages || []).slice(-100).forEach(item=>{ const row=document.createElement('div'); row.className='chat-message'; const author=document.createElement('strong'); author.textContent=item.author; const text=document.createElement('span'); text.textContent=item.message; row.append(author,text); box.appendChild(row); }); box.scrollTop=box.scrollHeight; }catch(_){ box.textContent='Czat jest chwilowo niedostępny.'; }
+      try{ const response = await fetch(API_BASE + '/api/chat'); const data = await response.json(); const adminToken = localStorage.getItem('adminToken'); box.innerHTML=''; (data.messages || []).slice(-100).forEach(item=>{ const row=document.createElement('div'); row.className='chat-message'; const meta=document.createElement('div'); meta.className='chat-message-meta'; const author=document.createElement('strong'); author.textContent=item.author; const date=document.createElement('time'); date.textContent=item.createdAt ? new Date(item.createdAt).toLocaleString('pl-PL') : ''; meta.append(author,date); const text=document.createElement('span'); text.textContent=item.message; row.append(meta,text); if(adminToken){ const del=document.createElement('button'); del.type='button'; del.className='chat-delete'; del.textContent='Usuń'; del.addEventListener('click', async()=>{ if(!confirm('Usunąć tę wiadomość?')) return; const remove=await fetch(API_BASE+'/api/chat',{method:'DELETE',headers:{'Content-Type':'application/json','Authorization':'Bearer '+adminToken},body:JSON.stringify({createdAt:item.createdAt})}); if(remove.ok) loadChat(); else alert('Nie udało się usunąć wiadomości.'); }); row.append(del); } box.appendChild(row); }); box.scrollTop=box.scrollHeight; }catch(_){ box.textContent='Czat jest chwilowo niedostępny.'; }
     }
     document.getElementById('chatSend').addEventListener('click', async ()=>{ const author=document.getElementById('chatAuthor').value; const message=document.getElementById('chatMessage').value.trim(); if(!author) return alert('Wybierz osobę.'); if(!message) return; const response=await fetch(API_BASE+'/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({author,message})}); if(response.ok){document.getElementById('chatMessage').value=''; loadChat();} else alert('Nie udało się wysłać wiadomości.'); });
     loadChatPeople(); loadChat();

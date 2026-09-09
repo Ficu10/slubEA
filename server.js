@@ -150,6 +150,21 @@ app.post('/api/chat', (req, res) => {
   } catch (_) { return res.status(500).json({ error: 'unable to save chat' }); }
 });
 
+app.delete('/api/chat', (req, res) => {
+  const auth = req.get('authorization') || '';
+  const token = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
+  if (!token || !sessions.has(token)) return res.status(403).json({ error: 'forbidden' });
+  const createdAt = String((req.body || {}).createdAt || '').trim();
+  try {
+    const data = JSON.parse(fs.readFileSync(CHAT_FILE, 'utf8'));
+    const messages = Array.isArray(data.messages) ? data.messages : [];
+    const remaining = messages.filter(item => item.createdAt !== createdAt);
+    if (remaining.length === messages.length) return res.status(404).json({ error: 'not_found' });
+    fs.writeFileSync(CHAT_FILE, JSON.stringify({ messages: remaining }, null, 2));
+    return res.json({ success: true });
+  } catch (_) { return res.status(500).json({ error: 'unable to save chat' }); }
+});
+
 app.post('/api/upload', upload.array('files', 50), async (req, res, next) => {
   try {
     const gcsBucket = process.env.GCS_BUCKET_NAME || null;

@@ -7,7 +7,7 @@ const s3 = new S3Client({
 });
 const KEY = 'chat/messages.json';
 
-function cors(res){ res.setHeader('Access-Control-Allow-Origin','*'); res.setHeader('Access-Control-Allow-Methods','GET,POST,OPTIONS'); res.setHeader('Access-Control-Allow-Headers','Content-Type'); }
+function cors(res){ res.setHeader('Access-Control-Allow-Origin','*'); res.setHeader('Access-Control-Allow-Methods','GET,POST,DELETE,OPTIONS'); res.setHeader('Access-Control-Allow-Headers','Content-Type,Authorization'); }
 async function readMessages(){
   try{
     const out = await s3.send(new GetObjectCommand({Bucket:process.env.R2_BUCKET_NAME,Key:KEY}));
@@ -21,6 +21,16 @@ module.exports = async function(req,res){
   try{
     const messages=await readMessages();
     if(req.method==='GET') return res.status(200).json({messages});
+    if(req.method==='DELETE'){
+      const auth = String(req.headers.authorization || '');
+      if(!auth.startsWith('Bearer ') || !auth.slice(7).trim()) return res.status(403).json({error:'forbidden'});
+      const createdAt = String((req.body||{}).createdAt || '').trim();
+      if(!createdAt) return res.status(400).json({error:'missing_createdAt'});
+      const remaining = messages.filter(item => item.createdAt !== createdAt);
+      if(remaining.length === messages.length) return res.status(404).json({error:'not_found'});
+      await s3.send(new PutObjectCommand({Bucket:process.env.R2_BUCKET_NAME,Key:KEY,Body:JSON.stringify({messages:remaining},null,2),ContentType:'application/json'}));
+      return res.status(200).json({success:true});
+    }
     if(req.method!=='POST') return res.status(405).json({error:'method_not_allowed'});
     const author=String((req.body||{}).author||'').trim(); const message=String((req.body||{}).message||'').trim();
     if(!author||!message) return res.status(400).json({error:'missing_fields'});
