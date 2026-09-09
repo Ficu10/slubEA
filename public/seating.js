@@ -489,12 +489,8 @@
     refreshToolbarSize();
   }
 
-  function arrangePeopleSymmetrically(index){
-    if (!isAdmin()) return;
-    const tableId = 't' + (index + 1);
-    const list = assignments[tableId] || [];
+  function applyCircularPeoplePositions(list){
     if (!list.length) return;
-    pushHistory();
     const startAngle = -90;
     const radius = 42;
     list.forEach((entry, personIndex)=>{
@@ -507,6 +503,15 @@
       };
       list[personIndex] = item;
     });
+  }
+
+  function arrangePeopleSymmetrically(index){
+    if (!isAdmin()) return;
+    const tableId = 't' + (index + 1);
+    const list = assignments[tableId] || [];
+    if (!list.length) return;
+    pushHistory();
+    applyCircularPeoplePositions(list);
     assignments[tableId] = list;
     saveToServer();
     renderAll();
@@ -611,7 +616,7 @@
     const save = document.createElement('button'); save.textContent='Zapisz'; save.className='btn-outline'; save.style.background='var(--green)'; save.style.color='#fff'; save.addEventListener('click', ()=>{
       const name = (nameInput.value||'').trim(); if (name) p.label = name; else delete p.label;
       if (p.shape==='rect'){ p.w = Math.max(6, Math.min(80, Number(sizeInput.value)||28)); p.h = Math.max(6, Math.min(60, Number(sizeInput2.value)||16)); delete p.size; } else { p.size = Math.max(6, Math.min(50, Number(sizeInput.value)||14)); delete p.w; delete p.h; }
-      positions[index] = p; assignments['t'+(index+1)] = orderedPeople; pushHistory(); saveToServer(); renderAll(); modal.remove();
+      positions[index] = p; applyCircularPeoplePositions(orderedPeople); assignments['t'+(index+1)] = orderedPeople; pushHistory(); saveToServer(); renderAll(); modal.remove();
     });
     // live updates
     nameInput.addEventListener('input', ()=> previewInner.textContent = nameInput.value);
