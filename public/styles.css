@@ -17,6 +17,9 @@ header h1{font-family: Merriweather, Georgia, serif; font-size:clamp(30px,5vw,44
 .info, .uploader, .gallery{background:var(--panel);border:1px solid rgba(47,111,78,0.06);padding:18px;margin:18px 0;border-radius:12px;box-shadow:0 10px 30px rgba(31,86,62,0.04)}
 form{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 input,textarea,select{max-width:100%;font:inherit}
+input[type="file"]{max-width:100%;padding:6px;border:1px solid rgba(47,111,78,.2);border-radius:10px;background:#fff;color:var(--muted)}
+input[type="file"]::file-selector-button{margin-right:10px;padding:9px 13px;border:0;border-radius:8px;background:linear-gradient(180deg,var(--green),var(--accent));color:#fff;font:inherit;font-weight:600;cursor:pointer}
+input[type="file"]::file-selector-button:hover{filter:brightness(1.05)}
 button,.btn-outline,.btn-primary{min-height:40px;transition:transform .18s ease,box-shadow .18s ease,background .18s ease}
 .gallery-sections{display:grid;grid-template-columns:1fr 1fr;gap:18px}
 .galleryGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
@@ -67,6 +70,7 @@ footer{display:flex;justify-content:center;padding:18px 0;color:var(--muted);fon
 .hall{max-width:100%;}
 .table .names{white-space:pre-line}
 .person-highlight{box-shadow:0 0 0 6px rgba(47,111,78,.55),0 0 24px 10px rgba(122,165,106,.8)!important;z-index:20;transition:box-shadow .2s ease}
+.map-link{display:inline-block;margin-top:7px;color:var(--green);font-weight:600;text-decoration:none;border-bottom:1px solid rgba(47,111,78,.35)}.map-link:hover{border-bottom-color:var(--green)}
 .wedding-details summary{cursor:pointer;color:var(--green);font-family:Merriweather,Georgia,serif;font-size:21px;font-weight:700}
 .schedule-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:16px}.schedule-list div{display:flex;gap:10px;padding:9px 10px;background:#f6fbf5;border-left:3px solid var(--accent);border-radius:6px}.schedule-list strong{color:var(--green);min-width:48px}.menu-list{margin-top:14px;line-height:1.6}.gallery-links>div{display:flex;gap:10px;flex-wrap:wrap}.gallery-links a{text-decoration:none}.wedding-chat .chat-note{color:var(--muted);margin-top:-4px}.chat-compose{display:grid;grid-template-columns:190px 1fr auto;gap:8px;align-items:start}.chat-compose select,.chat-compose textarea{width:100%;padding:9px;border:1px solid rgba(47,111,78,.2);border-radius:8px}.chat-messages{display:grid;gap:7px;max-height:280px;overflow:auto;margin-top:14px;padding:4px}.chat-message{display:flex;gap:8px;align-items:baseline;padding:9px 10px;background:#f6fbf5;border-radius:8px}.chat-message strong{color:var(--green);white-space:nowrap}.chat-message span{overflow-wrap:anywhere}
 .seating-controls{flex-wrap:wrap}
