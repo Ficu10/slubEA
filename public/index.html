@@ -23,6 +23,7 @@
       <input id="mobileCameraInput" type="file" accept="image/*" capture="environment" hidden>
       <a href="/login.html" class="btn-primary">Zaloguj</a>
     </nav>
+    <div id="cameraUploadStatus" class="camera-upload-status" aria-live="polite"></div>
   </header>
 
   <main>
@@ -283,9 +284,8 @@
       if (!videos.length) videosGrid.innerHTML = '<p>Brak przesłanych filmów.</p>';
       else videos.forEach(item => {
         const card = document.createElement('div'); card.className = 'card';
-        const vid = document.createElement('video'); vid.src = item.url; vid.controls = true; card.appendChild(vid);
+        const vid = document.createElement('video'); vid.src = item.url; vid.controls = true; vid.preload = 'metadata'; card.appendChild(vid);
         vid.style.cursor = 'pointer';
-        vid.addEventListener('click', ()=> showPreviewByKey(item.key));
         if (adminToken){
           const del = document.createElement('button'); del.textContent = 'Usuń'; del.style.marginTop='8px'; del.style.background='#c23333'; del.style.border='none'; del.style.color='#fff'; del.style.padding='6px 8px'; del.style.borderRadius='6px';
           del.addEventListener('click', async (e)=>{
@@ -301,8 +301,7 @@
       });
     }
 
-    async function uploadFiles(files) {
-      const status = document.getElementById('uploadStatus');
+    async function uploadFiles(files, status = document.getElementById('uploadStatus')) {
       const uploadList = Array.isArray(files) ? files : Array.from(files || []);
       if (!uploadList.length) return 0;
 
@@ -385,7 +384,7 @@
       mobileCameraInput.addEventListener('change', async () => {
         const files = Array.from(mobileCameraInput.files || []);
         if (!files.length) return;
-        const uploaded = await uploadFiles(files);
+        const uploaded = await uploadFiles(files, document.getElementById('cameraUploadStatus'));
         if (uploaded) mobileCameraInput.value = '';
       });
     }
@@ -479,10 +478,12 @@
 
         // swipe support
         let startX = null;
-        container.addEventListener('touchstart', (ev)=>{ startX = ev.touches[0].clientX; });
-        container.addEventListener('touchend', (ev)=>{
-          if (startX === null) return; const dx = ev.changedTouches[0].clientX - startX; if (Math.abs(dx) > 40){ if (dx < 0) index = (index+1)%gallery.length; else index = (index-1+gallery.length)%gallery.length; render(); } startX = null;
-        });
+        if (!isVideo) {
+          container.addEventListener('touchstart', (ev)=>{ startX = ev.touches[0].clientX; });
+          container.addEventListener('touchend', (ev)=>{
+            if (startX === null) return; const dx = ev.changedTouches[0].clientX - startX; if (Math.abs(dx) > 40){ if (dx < 0) index = (index+1)%gallery.length; else index = (index-1+gallery.length)%gallery.length; render(); } startX = null;
+          });
+        }
 
         // close when clicking outside
         modal.addEventListener('click', (e)=>{ if (e.target === modal) cleanup(); });
