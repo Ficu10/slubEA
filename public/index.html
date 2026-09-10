@@ -15,9 +15,17 @@
     <p class="date">10.10.2026</p>
     <nav class="top-nav">
       <a href="/seating.html" class="btn-outline">Rozmieszczenie stołów</a>
-      <button id="mobileCameraBtn" class="mobile-camera-btn" type="button" aria-label="Dodaj zdjęcie z aparatu" title="Dodaj zdjęcie z aparatu">📷</button>
+      <button id="mobileCameraBtn" class="mobile-camera-btn" type="button" aria-label="Otwórz aparat" title="Otwórz aparat">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M9 2.5h6l1.2 2.1h2.8a2 2 0 0 1 2 2v11.8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6.6a2 2 0 0 1 2-2h2.8L9 2.5zm3 4.2a5.3 5.3 0 1 0 0 10.6 5.3 5.3 0 0 0 0-10.6zm0 2.2a3.1 3.1 0 1 1 0 6.2 3.1 3.1 0 0 1 0-6.2z"/>
+        </svg>
+      </button>
       <input id="mobileCameraInput" type="file" accept="image/*,video/*" capture="environment" hidden>
-      <button id="mobileCameraSubmit" class="mobile-camera-submit" type="button" aria-label="Dodaj do galerii" title="Dodaj do galerii" hidden>✓</button>
+      <button id="mobileCameraSubmit" class="mobile-camera-submit" type="button" aria-label="Wyślij do galerii" title="Wyślij do galerii" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M9.55 15.65 5.9 12l-1.4 1.4 5.05 5.05 9.55-9.55-1.4-1.4-8.15 8.15z"/>
+        </svg>
+      </button>
       <a href="/login.html" class="btn-primary">Zaloguj</a>
     </nav>
   </header>
@@ -345,8 +353,6 @@
       if (uploaded.length) {
         if (status) status.textContent = 'Wysłano!';
         loadGallery();
-        const first = uploaded[0];
-        if (first) showPreviewByKey(first.key || (first.key === 0 ? 0 : null) || first);
       } else if (status) {
         status.textContent = 'Brak przesłanych plików.';
       }
