@@ -87,43 +87,104 @@
     <script src="/api-config.js"></script>
     <script src="/quiz-gate.js"></script>
     <script>
-    const WEDDING_DATE = new Date('2026-09-10T23:19:00+02:00');
+    const WEDDING_DATE = new Date('2026-09-10T23:29:00+02:00');
     const countdownEl = document.getElementById('countdown');
+    const countdownLabel = document.querySelector('.countdown-label');
 
     function formatCountdownPart(value) {
       return String(value).padStart(2, '0');
     }
 
+    function getScheduleEntries() {
+      return Array.from(document.querySelectorAll('.schedule-list > div'))
+        .map(node => {
+          const timeEl = node.querySelector('strong');
+          const labelEl = node.querySelector('span');
+          const timeText = timeEl ? timeEl.textContent.trim() : '';
+          const label = labelEl ? labelEl.textContent.trim() : '';
+          if (!timeText || !label) return null;
+
+          const [hours, minutes] = timeText.split(':').map(Number);
+          const base = new Date(WEDDING_DATE);
+          base.setHours(0, 0, 0, 0);
+          const date = new Date(base.getTime());
+
+          if (timeText === '24:00') {
+            date.setDate(date.getDate() + 1);
+            date.setHours(0, 0, 0, 0);
+          } else {
+            date.setHours(hours, minutes, 0, 0);
+          }
+
+          return { label, timeText, start: date };
+        })
+        .filter(Boolean);
+    }
+
     function updateCountdown() {
       if (!countdownEl) return;
 
-      const diff = WEDDING_DATE.getTime() - Date.now();
-      if (diff <= 0) {
+      const schedule = getScheduleEntries();
+      if (!schedule.length) {
         countdownEl.innerHTML = '<span class="countdown-item"><span class="countdown-value">Jest już!</span></span>';
         return;
       }
 
-      const totalSeconds = Math.floor(diff / 1000);
-      const days = Math.floor(totalSeconds / 86400);
-      const hours = Math.floor((totalSeconds % 86400) / 3600);
-      const minutes = Math.floor((totalSeconds % 3600) / 60);
-      const seconds = totalSeconds % 60;
+      const now = new Date();
+      let current = null;
+      let next = null;
 
-      countdownEl.innerHTML = [
-        { value: days, unit: 'dni' },
-        { value: hours, unit: 'godz' },
-        { value: minutes, unit: 'min' },
-        { value: seconds, unit: 'sek' }
-      ].map(item => `
-        <span class="countdown-item">
-          <span class="countdown-value">${formatCountdownPart(item.value)}</span>
-          <span class="countdown-unit">${item.unit}</span>
-        </span>
-      `).join('');
+      for (let i = 0; i < schedule.length; i++) {
+        const entry = schedule[i];
+        const nextEntry = schedule[i + 1];
+        const end = nextEntry ? nextEntry.start : new Date(entry.start.getTime() + 60 * 60 * 1000);
+
+        if (now >= entry.start && now < end) {
+          current = entry;
+          break;
+        }
+      }
+
+      if (!current) {
+        next = schedule.find(entry => entry.start > now) || null;
+      }
+
+      if (current) {
+        if (countdownLabel) countdownLabel.textContent = 'Aktualnie odbywa się';
+        countdownEl.innerHTML = `
+          <span class="countdown-item countdown-status">
+            <span class="countdown-value">${current.label}</span>
+            <span class="countdown-unit">Aktualnie odbywa się</span>
+          </span>
+        `;
+        return;
+      }
+
+      if (next) {
+        if (countdownLabel) countdownLabel.textContent = 'Następne wydarzenie';
+        const diff = Math.max(0, next.start.getTime() - now.getTime());
+        const totalMinutes = Math.floor(diff / 60000);
+        const hours = Math.floor(totalMinutes / 60);
+        const minutes = totalMinutes % 60;
+
+        countdownEl.innerHTML = [
+          { value: hours, unit: 'godz' },
+          { value: minutes, unit: 'min' }
+        ].map(item => `
+          <span class="countdown-item">
+            <span class="countdown-value">${formatCountdownPart(item.value)}</span>
+            <span class="countdown-unit">${item.unit}</span>
+          </span>
+        `).join('');
+        return;
+      }
+
+      if (countdownLabel) countdownLabel.textContent = 'Weselne wydarzenia';
+      countdownEl.innerHTML = '<span class="countdown-item"><span class="countdown-value">Weselne atrakcje</span><span class="countdown-unit">zakończone</span></span>';
     }
 
     updateCountdown();
-    setInterval(updateCountdown, 1000);
+    setInterval(updateCountdown, 10000);
 
     const API_BASE = window.API_URL || '';
     async function loadGallery(){
