@@ -344,10 +344,7 @@
             xhr.onerror = () => reject(new Error('Błąd połączenia podczas wysyłania pliku.'));
             xhr.send(f);
           });
-          const getUrlResp = await fetch(API_BASE + '/api/get-url?key=' + encodeURIComponent(sign.key));
-          let previewUrl = null;
-          if (getUrlResp.ok) { const j = await getUrlResp.json(); previewUrl = j.url; }
-          uploaded.push({ key: sign.key, url: previewUrl, name: f.name, contentType: f.type, size: f.size });
+          uploaded.push({ key: sign.key, url: null, name: f.name, contentType: f.type, size: f.size });
           done += 1;
           const percent = Math.round((done / total) * 100);
           if (status) {
