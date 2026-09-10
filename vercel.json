@@ -13,6 +13,7 @@
     { "src": "/api/seating", "dest": "/api/seating.js" },
     { "src": "/api/files", "dest": "/api/files.js" },
     { "src": "/api/zdjecia", "dest": "/api/zdjecia.js" },
+    { "src": "/api/sign-url", "dest": "/api/sign-url.js" },
     { "src": "/api/upload", "dest": "/api/upload.js" },
     { "src": "/api/(.*)", "dest": "/api/$1" },
     { "src": "/(.*)", "dest": "/public/$1" }
