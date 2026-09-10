@@ -101,11 +101,13 @@
       const days = Math.floor(totalSeconds / 86400);
       const hours = Math.floor((totalSeconds % 86400) / 3600);
       const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
 
       return [
         { value: days, unit: 'dni' },
         { value: hours, unit: 'godz' },
-        { value: minutes, unit: 'min' }
+        { value: minutes, unit: 'min' },
+        { value: seconds, unit: 'sek' }
       ];
     }
 
@@ -210,7 +212,7 @@
     }
 
     updateCountdown();
-    setInterval(updateCountdown, 10000);
+    setInterval(updateCountdown, 1000);
 
     const API_BASE = window.API_URL || '';
     async function loadGallery(){
