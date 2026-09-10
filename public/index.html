@@ -95,6 +95,20 @@
       return String(value).padStart(2, '0');
     }
 
+    function getWeddingCountdownParts() {
+      const diff = Math.max(0, WEDDING_DATE.getTime() - Date.now());
+      const totalSeconds = Math.floor(diff / 1000);
+      const days = Math.floor(totalSeconds / 86400);
+      const hours = Math.floor((totalSeconds % 86400) / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+
+      return [
+        { value: days, unit: 'dni' },
+        { value: hours, unit: 'godz' },
+        { value: minutes, unit: 'min' }
+      ];
+    }
+
     function getScheduleEntries() {
       return Array.from(document.querySelectorAll('.schedule-list > div'))
         .map(node => {
@@ -124,6 +138,19 @@
     function updateCountdown() {
       if (!countdownEl) return;
 
+      const now = new Date();
+
+      if (now < WEDDING_DATE) {
+        if (countdownLabel) countdownLabel.textContent = 'Do ślubu zostało';
+        countdownEl.innerHTML = getWeddingCountdownParts().map(item => `
+          <span class="countdown-item">
+            <span class="countdown-value">${formatCountdownPart(item.value)}</span>
+            <span class="countdown-unit">${item.unit}</span>
+          </span>
+        `).join('');
+        return;
+      }
+
       const schedule = getScheduleEntries();
       if (!schedule.length) {
         if (countdownLabel) countdownLabel.textContent = 'Weselne wydarzenia';
@@ -131,7 +158,6 @@
         return;
       }
 
-      const now = new Date();
       let current = null;
       let next = null;
 
