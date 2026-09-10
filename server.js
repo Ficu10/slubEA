@@ -7,6 +7,7 @@ const { google } = require('googleapis');
 const { Storage } = require('@google-cloud/storage');
 
 const UPLOAD_DIR = path.join(__dirname, 'uploads');
+const MAX_UPLOAD_BYTES = 1024 * 1024 * 1024;
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 const storage = multer.diskStorage({
@@ -20,6 +21,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
+  limits: { fileSize: MAX_UPLOAD_BYTES },
   fileFilter: (req, file, cb) => {
     if (/^image\//.test(file.mimetype) || /^video\//.test(file.mimetype)) cb(null, true);
     else cb(new Error('Unsupported file type'), false);

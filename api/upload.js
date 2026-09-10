@@ -2,8 +2,12 @@ const multer = require('multer');
 const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
+const MAX_UPLOAD_BYTES = 1024 * 1024 * 1024;
 const storage = multer.memoryStorage();
-const upload = multer({ storage }).fields([{ name: 'file', maxCount: 1 }, { name: 'files', maxCount: 20 }]);
+const upload = multer({
+  storage,
+  limits: { fileSize: MAX_UPLOAD_BYTES },
+}).fields([{ name: 'file', maxCount: 1 }, { name: 'files', maxCount: 20 }]);
 
 const s3 = new S3Client({
   region: 'auto',

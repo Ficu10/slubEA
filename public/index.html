@@ -306,6 +306,7 @@
       const uploadList = Array.isArray(files) ? files : Array.from(files || []);
       if (!uploadList.length) return 0;
 
+      const MAX_UPLOAD_BYTES = 1024 * 1024 * 1024;
       const total = uploadList.length;
       let done = 0;
       if (status) {
@@ -317,12 +318,15 @@
         `;
       }
 
-      const MAX_DIRECT = 10 * 1024 * 1024;
       const uploaded = [];
 
       for (const f of uploadList) {
         try {
-          if (f.size > MAX_DIRECT) {
+          if (f.size > MAX_UPLOAD_BYTES) {
+            throw new Error('Maksymalny rozmiar pliku to 1 GB.');
+          }
+
+          if (f.size > 10 * 1024 * 1024) {
             if (status) status.querySelector('.upload-progress-label').textContent = `Wgrywanie: ${done + 1}/${total}`;
             const signResp = await fetch(API_BASE + '/api/sign-url', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ filename: f.name, contentType: f.type }) });
             if (!signResp.ok) throw new Error('Cannot get signed URL');
