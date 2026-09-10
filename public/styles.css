@@ -99,7 +99,7 @@ footer{display:flex;justify-content:center;padding:18px 0;color:var(--muted);fon
 	.top-nav{flex-wrap:wrap}
 	.top-nav a,.top-nav button{min-width:132px}
 	.top-nav .btn-primary{display:none}
-	.mobile-camera-btn{display:inline-flex;align-items:center;justify-content:center;width:54px;height:42px;padding:0;border:1px solid rgba(20,34,26,0.1);border-radius:10px;background:#fff;color:var(--green);box-shadow:0 8px 24px rgba(47,111,78,0.12);cursor:pointer}
+	.mobile-camera-btn{display:inline-flex;align-items:center;justify-content:center;width:54px;height:42px;padding:0;border:1px solid rgba(20,34,26,0.08);border-radius:10px;background:linear-gradient(180deg,var(--green), var(--accent));color:#fff;box-shadow:0 8px 24px rgba(47,111,78,0.18);cursor:pointer}
 	.mobile-camera-submit{display:none;position:fixed;right:18px;bottom:20px;width:64px;height:46px;border:1px solid rgba(20,34,26,0.08);border-radius:10px;background:linear-gradient(180deg,#2f8f57,#4bb06d);color:#fff;box-shadow:0 10px 26px rgba(47,111,78,0.28);cursor:pointer;z-index:9999;align-items:center;justify-content:center}
 	.mobile-camera-submit:not([hidden]){display:inline-flex}
 }
