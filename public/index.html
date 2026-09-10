@@ -87,7 +87,7 @@
     <script src="/api-config.js"></script>
     <script src="/quiz-gate.js"></script>
     <script>
-    const WEDDING_DATE = new Date('2026-09-10T23:29:00+02:00');
+    const WEDDING_DATE = new Date('2026-09-10T23:34:00+02:00');
     const countdownEl = document.getElementById('countdown');
     const countdownLabel = document.querySelector('.countdown-label');
 
@@ -126,6 +126,7 @@
 
       const schedule = getScheduleEntries();
       if (!schedule.length) {
+        if (countdownLabel) countdownLabel.textContent = 'Weselne wydarzenia';
         countdownEl.innerHTML = '<span class="countdown-item"><span class="countdown-value">Jest już!</span></span>';
         return;
       }
@@ -154,7 +155,6 @@
         countdownEl.innerHTML = `
           <span class="countdown-item countdown-status">
             <span class="countdown-value">${current.label}</span>
-            <span class="countdown-unit">Aktualnie odbywa się</span>
           </span>
         `;
         return;
@@ -180,7 +180,7 @@
       }
 
       if (countdownLabel) countdownLabel.textContent = 'Weselne wydarzenia';
-      countdownEl.innerHTML = '<span class="countdown-item"><span class="countdown-value">Weselne atrakcje</span><span class="countdown-unit">zakończone</span></span>';
+      countdownEl.innerHTML = '<span class="countdown-item"><span class="countdown-value">Weselne atrakcje</span></span>';
     }
 
     updateCountdown();
