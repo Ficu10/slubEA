@@ -143,16 +143,23 @@
 
       const now = new Date();
 
-      if (now < WEDDING_DATE) {
-        if (countdownLabel) countdownLabel.textContent = 'Do ślubu zostało';
-        countdownEl.innerHTML = getWeddingCountdownParts().map(item => `
-          <span class="countdown-item">
-            <span class="countdown-value">${formatCountdownPart(item.value)}</span>
-            <span class="countdown-unit">${item.unit}</span>
+      if (now >= WEDDING_DATE) {
+        if (countdownLabel) countdownLabel.textContent = 'Koniec odliczania';
+        countdownEl.innerHTML = `
+          <span class="countdown-item countdown-status">
+            <span class="countdown-value">Zaczęło się!</span>
           </span>
-        `).join('');
+        `;
         return;
       }
+
+      if (countdownLabel) countdownLabel.textContent = 'Do ślubu zostało';
+      countdownEl.innerHTML = getWeddingCountdownParts().map(item => `
+        <span class="countdown-item">
+          <span class="countdown-value">${formatCountdownPart(item.value)}</span>
+          <span class="countdown-unit">${item.unit}</span>
+        </span>
+      `).join('');
 
       const schedule = getScheduleEntries();
       if (!schedule.length) {

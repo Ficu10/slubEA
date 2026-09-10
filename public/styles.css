@@ -21,6 +21,7 @@ header h1{font-family: Merriweather, Georgia, serif; font-size:clamp(30px,5vw,44
 .countdown{display:flex;flex-wrap:wrap;justify-content:center;gap:12px;color:var(--green);font-family:Merriweather,Georgia,serif;font-weight:700}
 .countdown-item{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:76px;padding:10px 12px;border-radius:12px;background:linear-gradient(180deg,#ffffff,#f6fbf4);border:1px solid rgba(47,111,78,0.12);box-shadow:0 8px 22px rgba(47,111,78,0.08)}
 .countdown-value{font-size:clamp(1.4rem,3vw,2.2rem);line-height:1.1}
+.countdown-item.countdown-status .countdown-value{font-size:clamp(1.8rem,4vw,2.8rem);line-height:1.2}
 .countdown-unit{font-size:0.62rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-top:6px}
 form{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 input,textarea,select{max-width:100%;font:inherit}
