@@ -15,6 +15,9 @@
     <p class="date">10.10.2026</p>
     <nav class="top-nav">
       <a href="/seating.html" class="btn-outline">Rozmieszczenie stołów</a>
+      <button id="mobileCameraBtn" class="mobile-camera-btn" type="button" aria-label="Dodaj zdjęcie z aparatu" title="Dodaj zdjęcie z aparatu">📷</button>
+      <input id="mobileCameraInput" type="file" accept="image/*,video/*" capture="environment" hidden>
+      <button id="mobileCameraSubmit" class="mobile-camera-submit" type="button" aria-label="Dodaj do galerii" title="Dodaj do galerii" hidden>✓</button>
       <a href="/login.html" class="btn-primary">Zaloguj</a>
     </nav>
   </header>
@@ -87,8 +90,7 @@
     <script src="/api-config.js"></script>
     <script src="/quiz-gate.js"></script>
     <script>
-    const WEDDING_DATE = new Date();
-    WEDDING_DATE.setHours(23, 55, 0, 0);
+    const WEDDING_DATE = new Date('2026-10-10T13:00:00+02:00');
     const countdownEl = document.getElementById('countdown');
     const countdownLabel = document.querySelector('.countdown-label');
 
@@ -293,42 +295,38 @@
       });
     }
 
-    document.getElementById('uploadForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const input = document.getElementById('files');
-      if (!input.files.length) return alert('Wybierz pliki.');
-      const files = Array.from(input.files);
+    async function uploadFiles(files) {
       const status = document.getElementById('uploadStatus');
-      status.textContent = 'Wysyłanie...';
-      const MAX_DIRECT = 10 * 1024 * 1024; // 10MB threshold for server-side upload
+      const uploadList = Array.isArray(files) ? files : Array.from(files || []);
+      if (!uploadList.length) return 0;
+
+      if (status) status.textContent = 'Wysyłanie...';
+      const MAX_DIRECT = 10 * 1024 * 1024;
       const uploaded = [];
-      for (const f of files) {
+
+      for (const f of uploadList) {
         try {
           if (f.size > MAX_DIRECT) {
-            // use presigned PUT
-            status.textContent = `Uzyskiwanie linku do wysyłki ${f.name}...`;
+            if (status) status.textContent = `Uzyskiwanie linku do wysyłki ${f.name}...`;
             const signResp = await fetch(API_BASE + '/api/sign-url', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ filename: f.name, contentType: f.type }) });
             if (!signResp.ok) throw new Error('Cannot get signed URL');
             const sign = await signResp.json();
-            // upload via PUT with XHR to allow progress
             await new Promise((resolve, reject) => {
               const xhr = new XMLHttpRequest();
               xhr.open('PUT', sign.url, true);
               if (f.type) xhr.setRequestHeader('Content-Type', f.type);
-              xhr.upload.onprogress = (e) => { if (e.lengthComputable) status.textContent = `Wysyłanie ${f.name}: ${Math.round((e.loaded/e.total)*100)}%`; };
+              xhr.upload.onprogress = (e) => { if (e.lengthComputable && status) status.textContent = `Wysyłanie ${f.name}: ${Math.round((e.loaded/e.total)*100)}%`; };
               xhr.onload = async () => { if (xhr.status >= 200 && xhr.status < 300) resolve(); else reject(new Error('Upload failed: ' + xhr.status)); };
               xhr.onerror = () => reject(new Error('Network error during upload'));
               xhr.send(f);
             });
-            // get preview URL
             const getUrlResp = await fetch(API_BASE + '/api/get-url?key=' + encodeURIComponent(sign.key));
             let previewUrl = null;
             if (getUrlResp.ok) { const j = await getUrlResp.json(); previewUrl = j.url; }
             uploaded.push({ key: sign.key, url: previewUrl, name: f.name, contentType: f.type, size: f.size });
           } else {
-            // small file — send to server endpoint
             const form = new FormData(); form.append('files', f);
-            status.textContent = `Wysyłanie ${f.name}...`;
+            if (status) status.textContent = `Wysyłanie ${f.name}...`;
             const res = await fetch(API_BASE + '/api/upload', { method: 'POST', body: form });
             if (!res.ok) throw new Error('Upload error');
             const j = await res.json();
@@ -337,24 +335,55 @@
           }
         } catch (err) {
           console.error('upload error', err);
-          status.textContent = `Błąd wysyłania ${f.name}: ${err.message}`;
+          if (status) status.textContent = `Błąd wysyłania ${f.name}: ${err.message}`;
         }
       }
 
-    // (preview functions are defined globally below)
-      // refresh gallery and show previews
       if (uploaded.length) {
-        status.textContent = 'Wysłano!';
-        input.value = '';
+        if (status) status.textContent = 'Wysłano!';
         loadGallery();
-        // also open preview for the first uploaded
         const first = uploaded[0];
-        if (first) showPreviewByKey(first.key || first.key === 0 ? first.key : first);
-      } else {
+        if (first) showPreviewByKey(first.key || (first.key === 0 ? 0 : null) || first);
+      } else if (status) {
         status.textContent = 'Brak przesłanych plików.';
       }
-      setTimeout(()=> status.textContent = '', 3000);
+      setTimeout(()=> { if (status) status.textContent = ''; }, 3000);
+      return uploaded.length;
+    }
+
+    document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const input = document.getElementById('files');
+      if (!input.files.length) return alert('Wybierz pliki.');
+      const files = Array.from(input.files);
+      const uploaded = await uploadFiles(files);
+      if (uploaded) input.value = '';
     });
+
+    const mobileCameraInput = document.getElementById('mobileCameraInput');
+    const mobileCameraBtn = document.getElementById('mobileCameraBtn');
+    const mobileCameraSubmit = document.getElementById('mobileCameraSubmit');
+
+    if (mobileCameraBtn && mobileCameraInput && mobileCameraSubmit) {
+      mobileCameraBtn.addEventListener('click', () => mobileCameraInput.click());
+      mobileCameraInput.addEventListener('change', () => {
+        const files = Array.from(mobileCameraInput.files || []);
+        if (!files.length) {
+          mobileCameraSubmit.hidden = true;
+          return;
+        }
+        mobileCameraSubmit.hidden = false;
+      });
+      mobileCameraSubmit.addEventListener('click', async () => {
+        const files = Array.from(mobileCameraInput.files || []);
+        if (!files.length) return;
+        const uploaded = await uploadFiles(files);
+        if (uploaded) {
+          mobileCameraInput.value = '';
+          mobileCameraSubmit.hidden = true;
+        }
+      });
+    }
 
     loadGallery();
 
