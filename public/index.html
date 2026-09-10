@@ -72,7 +72,22 @@
     </section>
 
     <section class="info wedding-chat">
-      <divWEDDING_DATE = new Date('2026-10-10T13:00:00+02:00');
+      <div id="chatMessages" class="chat-messages">Ładowanie wiadomości...</div>
+      <h2>Czat weselny</h2>
+      <p class="chat-note">Chcesz komuś coś powiedzieć? Czegoś potrzebujesz? Pisz śmiało!</p>
+      <div class="chat-compose"><select id="chatAuthor"><option value="">Kto pisze?</option></select><textarea id="chatMessage" rows="2" maxlength="500" placeholder="Napisz wiadomość..."></textarea><button id="chatSend" type="button">Wyślij</button></div>
+    </section>
+
+  </main>
+
+  <footer>
+    <p>Serdecznie zapraszamy — Emilka & Adaś</p>
+  </footer>
+
+    <script src="/api-config.js"></script>
+    <script src="/quiz-gate.js"></script>
+    <script>
+    const WEDDING_DATE = new Date('2026-10-10T13:00:00+02:00');
     const countdownEl = document.getElementById('countdown');
 
     function formatCountdownPart(value) {
@@ -110,21 +125,6 @@
     updateCountdown();
     setInterval(updateCountdown, 1000);
 
-    const  id="chatMessages" class="chat-messages">Ładowanie wiadomości...</div>
-      <h2>Czat weselny</h2>
-      <p class="chat-note">Chcesz komuś coś powiedzieć? Czegoś potrzebujesz? Pisz śmiało!</p>
-      <div class="chat-compose"><select id="chatAuthor"><option value="">Kto pisze?</option></select><textarea id="chatMessage" rows="2" maxlength="500" placeholder="Napisz wiadomość..."></textarea><button id="chatSend" type="button">Wyślij</button></div>
-    </section>
-
-  </main>
-
-  <footer>
-    <p>Serdecznie zapraszamy — Emilka & Adaś</p>
-  </footer>
-
-    <script src="/api-config.js"></script>
-    <script src="/quiz-gate.js"></script>
-    <script>
     const API_BASE = window.API_URL || '';
     async function loadGallery(){
       const photosGrid = document.getElementById('galleryPhotos');
