@@ -19,11 +19,17 @@ module.exports = async function (req, res) {
     const key = req.query.key || '';
     if (!key) return res.status(400).json({ error: 'missing_key' });
     if (!process.env.R2_BUCKET_NAME) return res.status(500).json({ error: 'missing_r2_env' });
-    const cmd = new GetObjectCommand({ Bucket: process.env.R2_BUCKET_NAME, Key: key });
+    const range = req.headers.range;
+    const cmd = new GetObjectCommand({ Bucket: process.env.R2_BUCKET_NAME, Key: key, ...(range ? { Range: range } : {}) });
     const data = await s3.send(cmd);
     const contentType = (data.ContentType) || 'application/octet-stream';
-    if (data.ContentLength) res.setHeader('Content-Length', String(data.ContentLength));
+    if (data.ContentRange) {
+      res.status(206);
+      res.setHeader('Content-Range', data.ContentRange);
+    }
+    if (data.ContentLength !== undefined) res.setHeader('Content-Length', String(data.ContentLength));
     res.setHeader('Content-Type', contentType);
+    res.setHeader('Accept-Ranges', 'bytes');
     res.setHeader('Cache-Control', 'public, max-age=3600');
     // stream body to response
     const body = data.Body;
