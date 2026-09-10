@@ -21,6 +21,10 @@
 
   <main>
     <section class="welcome-hero">
+      <div class="countdown-wrap" aria-live="polite">
+        <div class="countdown-label">Do ślubu zostało</div>
+        <div id="countdown" class="countdown"></div>
+      </div>
       <img src="/assets/1788991327166-1000003184.jpg" alt="Emilka i Adaś">
       <p>Serdecznie witamy Was na naszym weselu, mamy nadzieję, że będziecie się super z nami bawić w tym jakże ważnym dla nas dniu!</p>
     </section>
@@ -48,22 +52,7 @@
     <section class="info wedding-details">
       <details>
         <summary>Menu weselne</summary>
-        <div class="menu-list"><p><strong>Obiad:</strong> rosół, kotlet drobiowy, ziemniaki, surówki</p><p><strong>Dania ciepłe:</strong> barszcz z pasztecikiem, żurek, bogracz</p><p><strong>Zimna płyta:</strong> wędliny, sery, sałatki, pieczywo</p><p><strong>Desery:</strong> tort weselny, ciasta, owoce</p><p><strong>Napoje:</strong> kawa, herbata, soki, woda</p></div>
-      </details>
-    </section>
-
-    <section class="info gallery-links">
-      <h2>Zdjęcia i filmy</h2>
-      <div><a class="btn-primary" href="/photos.html">Zdjęcia</a><a class="btn-primary" href="/videos.html">Filmy</a></div>
-    </section>
-
-    <section class="uploader">
-      <h2>Wrzuć zdjęcia i filmy</h2>
-      
-      <form id="uploadForm">
-        <input type="file" id="files" name="files" multiple accept="image/*,video/*">
-        <button type="submit">Prześlij</button>
-      </form>
+        <div class="menu-list"><p><strong>Obiad:</strong> rosół, kotlet drobiowy, ziemniaki, surówki</p><p><strong>Dania ciepłe:</strong> barszcz z pasztecikiem, żurek, bogracz</p><p><strong>Zimna płyta:</strong> wędliny, sery, sałatki, pieczywo</p><p><strong>Desery:</strong> tort weselny, ciasta, owoce</p><p><strong>Napoje:</strong> kawa, herbata, soki, woda</form>
       <div id="uploadStatus"></div>
     </section>
 
@@ -83,6 +72,44 @@
     <script src="/api-config.js"></script>
     <script src="/quiz-gate.js"></script>
     <script>
+    const WEDDING_DATE = new Date('2026-10-10T13:00:00+02:00');
+    const countdownEl = document.getElementById('countdown');
+
+    function formatCountdownPart(value) {
+      return String(value).padStart(2, '0');
+    }
+
+    function updateCountdown() {
+      if (!countdownEl) return;
+
+      const diff = WEDDING_DATE.getTime() - Date.now();
+      if (diff <= 0) {
+        countdownEl.innerHTML = '<span class="countdown-item"><span class="countdown-value">Jest już!</span></span>';
+        return;
+      }
+
+      const totalSeconds = Math.floor(diff / 1000);
+      const days = Math.floor(totalSeconds / 86400);
+      const hours = Math.floor((totalSeconds % 86400) / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
+
+      countdownEl.innerHTML = [
+        { value: days, unit: 'dni' },
+        { value: hours, unit: 'godz' },
+        { value: minutes, unit: 'min' },
+        { value: seconds, unit: 'sek' }
+      ].map(item => `
+        <span class="countdown-item">
+          <span class="countdown-value">${formatCountdownPart(item.value)}</span>
+          <span class="countdown-unit">${item.unit}</span>
+        </span>
+      `).join('');
+    }
+
+    updateCountdown();
+    setInterval(updateCountdown, 1000);
+
     const API_BASE = window.API_URL || '';
     async function loadGallery(){
       const photosGrid = document.getElementById('galleryPhotos');
