@@ -21,6 +21,10 @@
 
   <main>
     <section class="welcome-hero">
+      <div class="countdown-wrap" aria-live="polite">
+        <div class="countdown-label">Do ślubu zostało</div>
+        <div id="countdown" class="countdown"></div>
+      </div>
       <img src="/assets/1788991327166-1000003184.jpg" alt="Emilka i Adaś">
       <p>Serdecznie witamy Was na naszym weselu, mamy nadzieję, że będziecie się super z nami bawić w tym jakże ważnym dla nas dniu!</p>
     </section>
@@ -68,7 +72,45 @@
     </section>
 
     <section class="info wedding-chat">
-      <div id="chatMessages" class="chat-messages">Ładowanie wiadomości...</div>
+      <divWEDDING_DATE = new Date('2026-10-10T13:00:00+02:00');
+    const countdownEl = document.getElementById('countdown');
+
+    function formatCountdownPart(value) {
+      return String(value).padStart(2, '0');
+    }
+
+    function updateCountdown() {
+      if (!countdownEl) return;
+
+      const diff = WEDDING_DATE.getTime() - Date.now();
+      if (diff <= 0) {
+        countdownEl.innerHTML = '<span class="countdown-item"><span class="countdown-value">Jest już!</span></span>';
+        return;
+      }
+
+      const totalSeconds = Math.floor(diff / 1000);
+      const days = Math.floor(totalSeconds / 86400);
+      const hours = Math.floor((totalSeconds % 86400) / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
+
+      countdownEl.innerHTML = [
+        { value: days, unit: 'dni' },
+        { value: hours, unit: 'godz' },
+        { value: minutes, unit: 'min' },
+        { value: seconds, unit: 'sek' }
+      ].map(item => `
+        <span class="countdown-item">
+          <span class="countdown-value">${formatCountdownPart(item.value)}</span>
+          <span class="countdown-unit">${item.unit}</span>
+        </span>
+      `).join('');
+    }
+
+    updateCountdown();
+    setInterval(updateCountdown, 1000);
+
+    const  id="chatMessages" class="chat-messages">Ładowanie wiadomości...</div>
       <h2>Czat weselny</h2>
       <p class="chat-note">Chcesz komuś coś powiedzieć? Czegoś potrzebujesz? Pisz śmiało!</p>
       <div class="chat-compose"><select id="chatAuthor"><option value="">Kto pisze?</option></select><textarea id="chatMessage" rows="2" maxlength="500" placeholder="Napisz wiadomość..."></textarea><button id="chatSend" type="button">Wyślij</button></div>
