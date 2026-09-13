@@ -55,7 +55,7 @@ module.exports = async function (req, res) {
     }
 
     if (req.method === 'POST'){
-      // Save shared assignments while preserving device-specific table positions.
+      // Save the complete shared seating state so every device sees the same layout.
       const payload = req.body || (await new Promise(r => {
         let data=''; req.on('data',c=>data+=c); req.on('end',()=>r(JSON.parse(data||'{}')));
       }));

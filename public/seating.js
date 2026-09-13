@@ -74,12 +74,7 @@
       if (!res.ok) throw new Error('no-server');
       const json = await res.json();
       const serverPositions = (json.positions && Array.isArray(json.positions))? json.positions : [];
-      let localPositions = null;
-      try{
-        const local = JSON.parse(localStorage.getItem(seatingKey) || 'null');
-        if (local && Array.isArray(local.positions) && local.positions.length) localPositions = local.positions;
-      }catch(_){ }
-      positions = localPositions || (serverPositions.length ? serverPositions : defaultPositions.slice());
+      positions = serverPositions.length ? serverPositions : defaultPositions.slice();
       assignments = json.assignments || {};
       drawings = json.drawings || [];
       hasUnsavedChanges = false;
@@ -105,7 +100,7 @@
   async function saveChanges(){
     if (!isAdmin() || !hasUnsavedChanges) return;
     const token = localStorage.getItem('adminToken');
-    const body = { assignments, drawings };
+    const body = { positions, assignments, drawings };
     try{
       saveButton.disabled = true;
       saveButton.textContent = 'Zapisywanie...';
