@@ -578,9 +578,43 @@
     pushHistory(); saveToServer(); renderAll();
   }
 
+  function showGuestTableCarousel(index){
+    const tableId = 't' + (index + 1);
+    const people = (assignments[tableId] || []).map(item=> typeof item === 'string' ? { name:item, info:'' } : item || { name:'', info:'' });
+    const table = positions[index] || {};
+    const modal = document.createElement('div'); Object.assign(modal.style,{ position:'fixed', left:0, top:0, right:0, bottom:0, background:'rgba(0,0,0,0.68)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:22000, padding:'16px', boxSizing:'border-box' });
+    const card = document.createElement('div'); Object.assign(card.style,{ position:'relative', width:'min(520px, 100%)', maxHeight:'90vh', overflow:'auto', background:'#fff', padding:'18px 48px', borderRadius:'12px', textAlign:'center', boxSizing:'border-box' });
+    const title = document.createElement('div'); title.textContent = table.label || ('Stolik ' + (index + 1)); Object.assign(title.style,{ fontSize:'20px', fontWeight:'700', marginBottom:'12px' });
+    const counter = document.createElement('div'); Object.assign(counter.style,{ color:'#666', fontSize:'13px', marginBottom:'10px' });
+    const slide = document.createElement('div'); Object.assign(slide.style,{ minHeight:'300px', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', touchAction:'pan-y' });
+    const previous = document.createElement('button'); previous.type='button'; previous.textContent='‹'; previous.title='Poprzednia osoba'; Object.assign(previous.style,{ position:'absolute', left:'10px', top:'50%', transform:'translateY(-50%)', fontSize:'36px', lineHeight:'1', padding:'4px 12px', cursor:'pointer' });
+    const next = document.createElement('button'); next.type='button'; next.textContent='›'; next.title='Następna osoba'; Object.assign(next.style,{ position:'absolute', right:'10px', top:'50%', transform:'translateY(-50%)', fontSize:'36px', lineHeight:'1', padding:'4px 12px', cursor:'pointer' });
+    const close = document.createElement('button'); close.type='button'; close.textContent='Zamknij'; close.className='btn-outline'; close.addEventListener('click', ()=> modal.remove());
+    let current = 0;
+    function renderSlide(){
+      const person = people[current];
+      slide.innerHTML = '';
+      const avatar = document.createElement('div'); Object.assign(avatar.style,{ width:'220px', height:'220px', borderRadius:'12px', overflow:'hidden', background:'#f3f3f3', display:'flex', alignItems:'center', justifyContent:'center', marginBottom:'12px' });
+      const url = avatarImageUrl(person.avatar);
+      if (url){ const image = document.createElement('img'); image.src=url; image.alt=person.name || ''; image.draggable=false; Object.assign(image.style,{ width:'100%', height:'100%', objectFit:'cover' }); avatar.appendChild(image); }
+      else { const initials = (person.name || '').split(' ').map(part=>part[0] || '').slice(0,2).join('').toUpperCase() || 'G'; const initialsEl = document.createElement('div'); initialsEl.textContent=initials; initialsEl.style.fontSize='72px'; initialsEl.style.fontWeight='700'; avatar.appendChild(initialsEl); }
+      const name = document.createElement('div'); name.textContent=person.name || 'Osoba'; Object.assign(name.style,{ fontSize:'20px', fontWeight:'700', marginBottom:'6px' });
+      const info = document.createElement('div'); info.textContent=person.info || ''; Object.assign(info.style,{ whiteSpace:'pre-wrap', color:'#444' });
+      slide.appendChild(avatar); slide.appendChild(name); slide.appendChild(info);
+      counter.textContent = people.length ? (current + 1) + ' / ' + people.length : 'Brak przypisanych osób';
+      previous.disabled = people.length < 2; next.disabled = people.length < 2;
+    }
+    previous.addEventListener('click', ()=>{ if (people.length){ current = (current - 1 + people.length) % people.length; renderSlide(); } });
+    next.addEventListener('click', ()=>{ if (people.length){ current = (current + 1) % people.length; renderSlide(); } });
+    let startX = null;
+    slide.addEventListener('touchstart', event=>{ startX = event.changedTouches[0].clientX; }, { passive:true });
+    slide.addEventListener('touchend', event=>{ if (startX === null) return; const distance = event.changedTouches[0].clientX - startX; startX = null; if (Math.abs(distance) > 45){ if (distance < 0) next.click(); else previous.click(); } }, { passive:true });
+    card.appendChild(title); card.appendChild(counter); card.appendChild(previous); card.appendChild(next); card.appendChild(slide); card.appendChild(close); modal.appendChild(card); modal.addEventListener('click', event=>{ if (event.target === modal) modal.remove(); }); document.body.appendChild(modal); renderSlide();
+  }
+
   // modal to edit table properties
   function showTableEditModal(index){
-    if (!isAdmin()){ alert('Tylko admin może edytować stolik.'); return; }
+    if (!isAdmin()){ showGuestTableCarousel(index); return; }
     const p = positions[index] || {};
     const modal = document.createElement('div'); Object.assign(modal.style,{ position:'fixed', left:0, top:0, right:0, bottom:0, background:'rgba(0,0,0,0.6)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:21000 });
     const box = document.createElement('div'); Object.assign(box.style,{ background:'#fff', padding:'14px', borderRadius:'10px', minWidth:'360px', maxWidth:'520px' });
