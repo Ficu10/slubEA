@@ -82,7 +82,7 @@
       <div id="chatMessages" class="chat-messages">Ładowanie wiadomości...</div>
       <h2>Czat weselny</h2>
       <p class="chat-note">Chcesz komuś coś powiedzieć? Czegoś potrzebujesz? Pisz śmiało!</p>
-      <div class="chat-compose"><select id="chatAuthor"><option value="">Kto pisze?</option></select><textarea id="chatMessage" rows="2" maxlength="500" placeholder="Napisz wiadomość..."></textarea><button id="chatSend" type="button">Wyślij</button></div>
+      <div class="chat-compose"><div class="chat-author-field"><input id="chatAuthor" list="chatPeople" autocomplete="off" placeholder="Wyszukaj osobę..."><datalist id="chatPeople"></datalist></div><textarea id="chatMessage" rows="2" maxlength="500" placeholder="Napisz wiadomość..."></textarea><button id="chatSend" type="button">Wyślij</button></div>
     </section>
 
   </main>
@@ -395,13 +395,14 @@
       try{
         const response = await fetch(API_BASE + '/api/seating');
         const data = await response.json();
-        const select = document.getElementById('chatAuthor');
+        const list = document.getElementById('chatPeople');
+        list.innerHTML = '';
         Object.keys(data.assignments || {}).forEach(tableId => (data.assignments[tableId] || []).forEach(item => {
           const name = typeof item === 'string' ? item : item && item.name;
           if (!name) return;
-          const option = document.createElement('option'); option.value = name; option.textContent = name + ' (' + tableId.replace('t','Stolik ') + ')'; select.appendChild(option);
+          const option = document.createElement('option'); option.value = name; option.label = name + ' (' + tableId.replace('t','Stolik ') + ')'; list.appendChild(option);
         }));
-      }catch(_){ document.getElementById('chatAuthor').innerHTML = '<option value="">Nie udało się pobrać listy osób</option>'; }
+      }catch(_){ document.getElementById('chatAuthor').placeholder = 'Nie udało się pobrać listy osób'; }
     }
     async function loadChat(){
       const box = document.getElementById('chatMessages');
