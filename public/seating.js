@@ -37,6 +37,8 @@
   let editMode = 'tables'; // 'tables' or 'people'
   let hasUnsavedChanges = false;
   let saveButton = null;
+  let saveQueue = Promise.resolve();
+  let saveRevision = 0;
 
   // default template (used if server has none)
   const defaultPositions = [
@@ -89,30 +91,39 @@
 
   async function saveToServer(){
     const token = localStorage.getItem('adminToken');
-    const body = { assignments, drawings };
-    if (!token){ saveLocal(); return; }
-    // avoid accidentally overwriting server with empty seating (require explicit admin action)
-    hasUnsavedChanges = true;
+    saveRevision += 1;
+    const revision = saveRevision;
     saveLocal();
+    hasUnsavedChanges = true;
     updateSaveButton();
+    if (!token) return;
+
+    const body = JSON.stringify({ positions, assignments, drawings });
+    saveQueue = saveQueue.then(async ()=>{
+      const response = await fetch(API_BASE + '/api/seating', {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+token },
+        body
+      });
+      if (!response.ok) throw new Error('save_failed');
+      if (revision === saveRevision){
+        hasUnsavedChanges = false;
+        updateSaveButton();
+      }
+    }).catch(error=>{
+      console.error('Nie udało się automatycznie zapisać rozmieszczenia:', error);
+      hasUnsavedChanges = true;
+      updateSaveButton();
+    });
+    return saveQueue;
   }
 
   async function saveChanges(){
     if (!isAdmin() || !hasUnsavedChanges) return;
-    const token = localStorage.getItem('adminToken');
-    const body = { positions, assignments, drawings };
-    try{
-      saveButton.disabled = true;
-      saveButton.textContent = 'Zapisywanie...';
-      const response = await fetch(API_BASE + '/api/seating', { method:'POST', headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+token }, body: JSON.stringify(body) });
-      if (!response.ok) throw new Error('save_failed');
-      hasUnsavedChanges = false;
-      updateSaveButton();
-    }catch(e){
-      hasUnsavedChanges = true;
-      updateSaveButton();
-      alert('Nie udało się zapisać zmian. Spróbuj ponownie.');
-    }
+    saveButton.disabled = true;
+    saveButton.textContent = 'Zapisywanie...';
+    await saveToServer();
+    updateSaveButton();
   }
 
   function pushHistory(){
