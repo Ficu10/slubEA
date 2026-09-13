@@ -825,7 +825,8 @@
         alert('Nie można połączyć z serwerem.');
       }
     });
-    getControls().appendChild(btn);
+    const target = document.querySelector('.top-nav') || getControls();
+    target.appendChild(btn);
   }
 
   function ensureSaveButton(){

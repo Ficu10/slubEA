@@ -84,6 +84,7 @@ footer{display:flex;justify-content:center;padding:18px 0;color:var(--muted);fon
 .seating-controls{flex-wrap:wrap}
 .seating-controls>div:first-child{min-width:180px}
 .seating-controls button,.seating-controls a{white-space:nowrap}
+.seating-controls #searchBtn{color:#fff}
 
 /* Top navigation */
 .top-nav{position:absolute;right:34px;top:18px;display:flex;gap:8px;align-items:center;z-index:30}
@@ -91,6 +92,7 @@ footer{display:flex;justify-content:center;padding:18px 0;color:var(--muted);fon
 .top-nav a{cursor:pointer;text-decoration:none}
 .btn-primary{display:inline-block;padding:8px 12px;border-radius:12px;border:none;background:linear-gradient(180deg,var(--green), var(--accent));color:#fff;text-decoration:none;font-weight:700}
 .top-nav .btn-primary{box-shadow:0 8px 24px rgba(47,111,78,0.12)}
+.top-nav #adminLoginBtn{display:inline-block;padding:8px 12px;border-radius:10px;border:1px solid rgba(20,34,26,0.08);background:transparent;color:var(--green);font-weight:600;box-shadow:none}
 .seating-link span{display:inline-block;min-width:.08em;animation:seating-letter-scatter 2s cubic-bezier(.2,.8,.25,1) infinite}
 .seating-link span:nth-child(3n+1){animation-delay:0s}
 .seating-link span:nth-child(3n+2){animation-delay:.045s}
