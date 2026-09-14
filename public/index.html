@@ -89,7 +89,19 @@
       <h3 id="contentEditorTitle">Edytuj treść</h3>
         <div id="contentEditorToolbar" class="content-editor-toolbar" hidden>
           <button type="button" class="btn-outline" data-editor-format="bold"><strong>B</strong></button>
-          <button type="button" class="btn-outline" data-editor-format="bullet">Dodaj myślnik</button>
+          <select id="editorFontSelect" aria-label="Czcionka">
+            <option value="">Czcionka</option>
+            <option value="Georgia">Georgia</option>
+            <option value="Merriweather">Merriweather</option>
+            <option value="Playfair Display">Playfair Display</option>
+            <option value="Poppins">Poppins</option>
+          </select>
+          <select id="editorSizeSelect" aria-label="Rozmiar tekstu">
+            <option value="">Rozmiar</option>
+            <option value="small">Mały</option>
+            <option value="normal">Normalny</option>
+            <option value="large">Duży</option>
+          </select>
         </div>
         <textarea id="contentEditorTextarea" rows="16" aria-label="Treść do edycji"></textarea>
       <div class="content-editor-actions">
@@ -276,7 +288,10 @@
 
     function formatMenuText(value) {
       const escaped = String(value || '').replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
-      return escaped.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+      return escaped
+        .replace(/\[\[font=(Georgia|Merriweather|Playfair Display|Poppins)\]\]([\s\S]*?)\[\[\/font\]\]/g, '<span style="font-family:$1,Georgia,serif">$2</span>')
+        .replace(/\[\[size=(small|normal|large)\]\]([\s\S]*?)\[\[\/size\]\]/g, (_, size, text) => `<span class="menu-size-${size}">${text}</span>`)
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
     }
 
     function renderMenu() {
@@ -319,7 +334,7 @@
       });
     }
 
-    function applyEditorFormat(format) {
+    function applyEditorFormat(format, value) {
       const editor = document.getElementById('contentEditorTextarea');
       if (!editor) return;
       const start = editor.selectionStart;
@@ -327,10 +342,16 @@
       const selected = editor.value.slice(start, end);
       if (format === 'bold') {
         editor.setRangeText(`**${selected || 'pogrubiony tekst'}**`, start, end, 'select');
-      } else if (format === 'bullet') {
-        const lineStart = editor.value.lastIndexOf('\n', start - 1) + 1;
-        const prefix = editor.value.slice(lineStart, start).trimStart().startsWith('- ') ? '' : '- ';
-        editor.setRangeText(prefix, lineStart, lineStart, 'end');
+      } else if (format === 'font' && value) {
+        const text = selected || 'tekst';
+        const prefix = `[[font=${value}]]`;
+        editor.setRangeText(`${prefix}${text}[[/font]]`, start, end, 'end');
+        editor.setSelectionRange(start + prefix.length, start + prefix.length + text.length);
+      } else if (format === 'size' && value) {
+        const text = selected || 'tekst';
+        const prefix = `[[size=${value}]]`;
+        editor.setRangeText(`${prefix}${text}[[/size]]`, start, end, 'end');
+        editor.setSelectionRange(start + prefix.length, start + prefix.length + text.length);
       }
       editor.focus();
     }
@@ -598,6 +619,14 @@
     });
     document.querySelectorAll('[data-editor-format]').forEach(button => {
       button.addEventListener('click', () => applyEditorFormat(button.dataset.editorFormat));
+    });
+    document.getElementById('editorFontSelect').addEventListener('change', event => {
+      applyEditorFormat('font', event.target.value);
+      event.target.value = '';
+    });
+    document.getElementById('editorSizeSelect').addEventListener('change', event => {
+      applyEditorFormat('size', event.target.value);
+      event.target.value = '';
     });
     document.getElementById('contentEditorCancel').addEventListener('click', closeContentEditor);
     document.getElementById('contentEditorSave').addEventListener('click', saveSiteContent);
