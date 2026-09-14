@@ -325,6 +325,10 @@
         .replace(/~~(.+?)~~/g, '<u>$1</u>');
     }
 
+    function normalizeBoldColon(html) {
+      return String(html || '').replace(/<strong>([^<]*):<\/strong>/g, '<strong>$1</strong>:');
+    }
+
     function formatMenuText(value) {
       return formatText(value);
     }
@@ -336,8 +340,8 @@
         const text = String(item.text || '');
         const bullet = text.trimStart().startsWith('- ');
         const cleanText = bullet ? text.trimStart().slice(2) : text;
-        const title = item.title ? `<strong>${formatMenuText(item.title)}:</strong> ` : '';
-        return `<p${bullet ? ' class="menu-bullet"' : ''}>${item.html || title + formatMenuText(cleanText)}</p>`;
+        const title = item.title ? `<strong>${formatMenuText(item.title)}</strong>: ` : '';
+        return `<p${bullet ? ' class="menu-bullet"' : ''}>${normalizeBoldColon(item.html) || title + formatMenuText(cleanText)}</p>`;
       }).join('');
     }
 
@@ -443,7 +447,7 @@
         editor.innerHTML = (siteContent.schedule || defaultSchedule).map(item => `<div><strong>${item.time || ''}</strong> | <span>${item.html || formatText(item.label || '')}</span></div>`).join('');
       } else {
         title.textContent = 'Edytuj menu weselne';
-        editor.innerHTML = (siteContent.menu || defaultMenu).map(item => `<p>${item.html || (item.title ? `<strong>${item.title}:</strong> ${formatMenuText(item.text || '')}` : formatMenuText(item.text || ''))}</p>`).join('');
+        editor.innerHTML = (siteContent.menu || defaultMenu).map(item => `<p>${normalizeBoldColon(item.html) || (item.title ? `<strong>${item.title}</strong>: ${formatMenuText(item.text || '')}` : formatMenuText(item.text || ''))}</p>`).join('');
       }
       modal.hidden = false;
       editor.focus();
