@@ -11,6 +11,7 @@
     { "src": "/api/login", "dest": "/api/login.js" },
     { "src": "/api/chat", "dest": "/api/chat.js" },
     { "src": "/api/seating", "dest": "/api/seating.js" },
+    { "src": "/api/site-content", "dest": "/api/site-content.js" },
     { "src": "/api/files", "dest": "/api/files.js" },
     { "src": "/api/zdjecia", "dest": "/api/zdjecia.js" },
     { "src": "/api/sign-url", "dest": "/api/sign-url.js" },
