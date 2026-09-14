@@ -126,6 +126,7 @@ async function listDriveFiles(folderId){
 const DATA_DIR = path.join(__dirname, 'data');
 const SEATING_FILE = path.join(DATA_DIR, 'seating.json');
 const CHAT_FILE = path.join(DATA_DIR, 'chat.json');
+const SITE_CONTENT_FILE = path.join(DATA_DIR, 'site-content.json');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 // ensure seating file exists
 if (!fs.existsSync(SEATING_FILE)) {
@@ -133,6 +134,64 @@ if (!fs.existsSync(SEATING_FILE)) {
   fs.writeFileSync(SEATING_FILE, JSON.stringify(defaultSeating, null, 2));
 }
 if (!fs.existsSync(CHAT_FILE)) fs.writeFileSync(CHAT_FILE, JSON.stringify({ messages: [] }, null, 2));
+
+const defaultSiteContent = {
+  schedule: [
+    { time: '13:00', label: 'Ślub' },
+    { time: '14:00', label: 'Życzenia' },
+    { time: '15:00', label: 'Pierwszy taniec' },
+    { time: '16:00', label: 'Obiad' },
+    { time: '17:00', label: 'Zdjęcia' },
+    { time: '18:00', label: 'Tort' },
+    { time: '19:00', label: 'Kolacja I' },
+    { time: '20:00', label: 'Zimne ognie' },
+    { time: '22:00', label: 'Kolacja II' },
+    { time: '24:00', label: 'Oczepiny' },
+    { time: '02:30', label: 'Kolacja III' },
+    { time: '05:00', label: 'Koniec imprezy' }
+  ],
+  menu: [
+    { title: 'Obiad', text: 'rosół, kotlet drobiowy, ziemniaki, surówki' },
+    { title: 'Dania ciepłe', text: 'barszcz z pasztecikiem, żurek, bogracz' },
+    { title: 'Zimna płyta', text: 'wędliny, sery, sałatki, pieczywo' },
+    { title: 'Desery', text: 'tort weselny, ciasta, owoce' },
+    { title: 'Napoje', text: 'kawa, herbata, soki, woda' }
+  ]
+};
+
+if (!fs.existsSync(SITE_CONTENT_FILE)) fs.writeFileSync(SITE_CONTENT_FILE, JSON.stringify(defaultSiteContent, null, 2));
+
+app.get('/api/site-content', (req, res) => {
+  try {
+    const data = JSON.parse(fs.readFileSync(SITE_CONTENT_FILE, 'utf8'));
+    return res.json({
+      schedule: Array.isArray(data.schedule) && data.schedule.length ? data.schedule : defaultSiteContent.schedule,
+      menu: Array.isArray(data.menu) && data.menu.length ? data.menu : defaultSiteContent.menu
+    });
+  } catch (_) {
+    return res.json(defaultSiteContent);
+  }
+});
+
+app.post('/api/site-content', (req, res) => {
+  const auth = (req.get('authorization') || '');
+  const parts = auth.split(' ');
+  const token = parts.length === 2 && parts[0] === 'Bearer' ? parts[1] : null;
+  if (!token || !sessions.has(token)) return res.status(403).json({ error: 'forbidden' });
+
+  const payload = req.body || {};
+  const next = {
+    schedule: Array.isArray(payload.schedule) ? payload.schedule : defaultSiteContent.schedule,
+    menu: Array.isArray(payload.menu) ? payload.menu : defaultSiteContent.menu
+  };
+
+  try {
+    fs.writeFileSync(SITE_CONTENT_FILE, JSON.stringify(next, null, 2));
+    return res.json({ success: true, content: next });
+  } catch (_) {
+    return res.status(500).json({ error: 'unable to save site content' });
+  }
+});
 
 app.get('/api/chat', (req, res) => {
   try { const data = JSON.parse(fs.readFileSync(CHAT_FILE, 'utf8')); return res.json({ messages: Array.isArray(data.messages) ? data.messages : [] }); }

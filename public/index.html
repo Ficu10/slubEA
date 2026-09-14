@@ -43,23 +43,20 @@
     </section>
 
     <section class="info wedding-details">
+      <div class="content-admin-controls" id="contentAdminControls" hidden>
+        <button type="button" class="btn-outline" data-edit-target="schedule">Edytuj plan dnia</button>
+        <button type="button" class="btn-outline" data-edit-target="menu">Edytuj menu</button>
+      </div>
       <details>
         <summary>Plan dnia</summary>
-        <div class="schedule-list">
-          <div><strong>13:00</strong><span>Ślub</span></div><div><strong>14:00</strong><span>Życzenia</span></div>
-          <div><strong>15:00</strong><span>Pierwszy taniec</span></div><div><strong>16:00</strong><span>Obiad</span></div>
-          <div><strong>17:00</strong><span>Zdjęcia</span></div><div><strong>18:00</strong><span>Tort</span></div>
-          <div><strong>19:00</strong><span>Kolacja I</span></div><div><strong>20:00</strong><span>Sztuczne ognie</span></div>
-          <div><strong>22:00</strong><span>Kolacja II</span></div><div><strong>24:00</strong><span>Oczepiny</span></div>
-          <div><strong>02:30</strong><span>Kolacja III</span></div><div><strong>05:00</strong><span>Koniec imprezy</span></div>
-        </div>
+        <div class="schedule-list" id="scheduleList"></div>
       </details>
     </section>
 
     <section class="info wedding-details">
       <details>
         <summary>Menu weselne</summary>
-        <div class="menu-list"><p><strong>Obiad:</strong> rosół, kotlet drobiowy, ziemniaki, surówki</p><p><strong>Dania ciepłe:</strong> barszcz z pasztecikiem, żurek, bogracz</p><p><strong>Zimna płyta:</strong> wędliny, sery, sałatki, pieczywo</p><p><strong>Desery:</strong> tort weselny, ciasta, owoce</p><p><strong>Napoje:</strong> kawa, herbata, soki, woda</p></div>
+        <div class="menu-list" id="menuList"></div>
       </details>
     </section>
 
@@ -86,6 +83,17 @@
     </section>
 
   </main>
+
+  <div id="contentEditorModal" class="content-editor-modal" hidden>
+    <div class="content-editor-panel">
+      <h3 id="contentEditorTitle">Edytuj treść</h3>
+      <textarea id="contentEditorTextarea" rows="16" aria-label="Treść do edycji"></textarea>
+      <div class="content-editor-actions">
+        <button type="button" id="contentEditorCancel" class="btn-outline">Anuluj</button>
+        <button type="button" id="contentEditorSave" class="btn-primary">Zapisz</button>
+      </div>
+    </div>
+  </div>
 
   <footer>
     <p>Serdecznie zapraszamy — Emilka & Adaś</p>
@@ -230,6 +238,142 @@
 
     updateCountdown();
     setInterval(updateCountdown, 1000);
+
+    const defaultSchedule = [
+      { time: '13:00', label: 'Ślub' },
+      { time: '14:00', label: 'Życzenia' },
+      { time: '15:00', label: 'Pierwszy taniec' },
+      { time: '16:00', label: 'Obiad' },
+      { time: '17:00', label: 'Zdjęcia' },
+      { time: '18:00', label: 'Tort' },
+      { time: '19:00', label: 'Kolacja I' },
+      { time: '20:00', label: 'Zimne ognie' },
+      { time: '22:00', label: 'Kolacja II' },
+      { time: '24:00', label: 'Oczepiny' },
+      { time: '02:30', label: 'Kolacja III' },
+      { time: '05:00', label: 'Koniec imprezy' }
+    ];
+    const defaultMenu = [
+      { title: 'Obiad', text: 'rosół, kotlet drobiowy, ziemniaki, surówki' },
+      { title: 'Dania ciepłe', text: 'barszcz z pasztecikiem, żurek, bogracz' },
+      { title: 'Zimna płyta', text: 'wędliny, sery, sałatki, pieczywo' },
+      { title: 'Desery', text: 'tort weselny, ciasta, owoce' },
+      { title: 'Napoje', text: 'kawa, herbata, soki, woda' }
+    ];
+    let siteContent = { schedule: defaultSchedule.slice(), menu: defaultMenu.slice() };
+
+    function renderSchedule() {
+      const list = document.getElementById('scheduleList');
+      if (!list) return;
+      list.innerHTML = (siteContent.schedule || defaultSchedule).map(item => `
+        <div><strong>${item.time || ''}</strong><span>${item.label || ''}</span></div>
+      `).join('');
+    }
+
+    function renderMenu() {
+      const list = document.getElementById('menuList');
+      if (!list) return;
+      list.innerHTML = (siteContent.menu || defaultMenu).map(item => `
+        <p><strong>${item.title || 'Pozycja'}:</strong> ${item.text || ''}</p>
+      `).join('');
+    }
+
+    function isAdmin() {
+      return !!localStorage.getItem('adminToken');
+    }
+
+    function updateContentAdminControls() {
+      const controls = document.getElementById('contentAdminControls');
+      if (!controls) return;
+      controls.hidden = !isAdmin();
+    }
+
+    function parseScheduleText(value) {
+      return (value || '').split('\n').map(line => line.trim()).filter(Boolean).map(line => {
+        const match = line.match(/^\s*(\d{1,2}:\d{2})\s*[-–:]\s*(.+?)\s*$/);
+        if (match) return { time: match[1], label: match[2].trim() };
+        const parts = line.split('|');
+        if (parts.length >= 2) return { time: parts[0].trim(), label: parts.slice(1).join('|').trim() };
+        return { time: '', label: line.trim() };
+      }).filter(item => item.time || item.label);
+    }
+
+    function parseMenuText(value) {
+      return (value || '').split('\n').map(line => line.trim()).filter(Boolean).map(line => {
+        const match = line.match(/^\s*(.+?)\s*:\s*(.+?)\s*$/);
+        if (match) return { title: match[1].trim(), text: match[2].trim() };
+        return { title: 'Pozycja', text: line.trim() };
+      });
+    }
+
+    function openContentEditor(type) {
+      const modal = document.getElementById('contentEditorModal');
+      const editor = document.getElementById('contentEditorTextarea');
+      const title = document.getElementById('contentEditorTitle');
+      if (!modal || !editor || !title) return;
+
+      if (type === 'schedule') {
+        title.textContent = 'Edytuj plan dnia';
+        editor.value = (siteContent.schedule || defaultSchedule).map(item => `${item.time || ''} | ${item.label || ''}`).join('\n');
+      } else {
+        title.textContent = 'Edytuj menu weselne';
+        editor.value = (siteContent.menu || defaultMenu).map(item => `${item.title || 'Pozycja'}: ${item.text || ''}`).join('\n');
+      }
+      modal.hidden = false;
+      editor.focus();
+      window.currentContentEditor = type;
+    }
+
+    function closeContentEditor() {
+      const modal = document.getElementById('contentEditorModal');
+      if (modal) modal.hidden = true;
+      window.currentContentEditor = null;
+    }
+
+    async function saveSiteContent() {
+      const modal = document.getElementById('contentEditorModal');
+      const editor = document.getElementById('contentEditorTextarea');
+      if (!modal || !editor || !window.currentContentEditor) return;
+
+      const payload = window.currentContentEditor === 'schedule'
+        ? { schedule: parseScheduleText(editor.value), menu: siteContent.menu || defaultMenu }
+        : { schedule: siteContent.schedule || defaultSchedule, menu: parseMenuText(editor.value) };
+
+      const token = localStorage.getItem('adminToken');
+      const response = await fetch((window.API_URL || '') + '/api/site-content', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) {
+        alert('Nie udało się zapisać zmian.');
+        return;
+      }
+      const data = await response.json();
+      if (data && data.content) {
+        siteContent = data.content;
+        renderSchedule();
+        renderMenu();
+      }
+      closeContentEditor();
+    }
+
+    async function loadSiteContent() {
+      try {
+        const response = await fetch((window.API_URL || '') + '/api/site-content');
+        if (!response.ok) throw new Error('bad response');
+        const data = await response.json();
+        siteContent = {
+          schedule: Array.isArray(data.schedule) && data.schedule.length ? data.schedule : defaultSchedule,
+          menu: Array.isArray(data.menu) && data.menu.length ? data.menu : defaultMenu
+        };
+      } catch (_) {
+        siteContent = { schedule: defaultSchedule.slice(), menu: defaultMenu.slice() };
+      }
+      renderSchedule();
+      renderMenu();
+      updateContentAdminControls();
+    }
 
     const API_BASE = window.API_URL || '';
     async function loadGallery(){
@@ -409,6 +553,16 @@
       try{ const response = await fetch(API_BASE + '/api/chat'); const data = await response.json(); const adminToken = localStorage.getItem('adminToken'); box.innerHTML=''; (data.messages || []).slice(-100).forEach(item=>{ const row=document.createElement('div'); row.className='chat-message'; const meta=document.createElement('div'); meta.className='chat-message-meta'; const author=document.createElement('strong'); author.textContent=item.author; const date=document.createElement('time'); date.textContent=item.createdAt ? new Date(item.createdAt).toLocaleString('pl-PL') : ''; meta.append(author,date); const text=document.createElement('span'); text.textContent=item.message; row.append(meta,text); if(adminToken){ const del=document.createElement('button'); del.type='button'; del.className='chat-delete'; del.textContent='Usuń'; del.addEventListener('click', async()=>{ if(!confirm('Usunąć tę wiadomość?')) return; const remove=await fetch(API_BASE+'/api/chat',{method:'DELETE',headers:{'Content-Type':'application/json','Authorization':'Bearer '+adminToken},body:JSON.stringify({createdAt:item.createdAt})}); if(remove.ok) loadChat(); else alert('Nie udało się usunąć wiadomości.'); }); row.append(del); } box.appendChild(row); }); box.scrollTop=box.scrollHeight; }catch(_){ box.textContent='Czat jest chwilowo niedostępny.'; }
     }
     document.getElementById('chatSend').addEventListener('click', async ()=>{ const author=document.getElementById('chatAuthor').value; const message=document.getElementById('chatMessage').value.trim(); if(!author) return alert('Wybierz osobę.'); if(!message) return; const response=await fetch(API_BASE+'/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({author,message})}); if(response.ok){document.getElementById('chatMessage').value=''; loadChat();} else alert('Nie udało się wysłać wiadomości.'); });
+    document.querySelectorAll('[data-edit-target]').forEach(button => {
+      button.addEventListener('click', () => openContentEditor(button.dataset.editTarget));
+    });
+    document.getElementById('contentEditorCancel').addEventListener('click', closeContentEditor);
+    document.getElementById('contentEditorSave').addEventListener('click', saveSiteContent);
+    document.getElementById('contentEditorModal').addEventListener('click', (event) => {
+      if (event.target && event.target.id === 'contentEditorModal') closeContentEditor();
+    });
+
+    loadSiteContent();
     loadChatPeople(); loadChat();
     // Fullscreen gallery modal with navigation (global scope)
     function showPreviewByKey(key){
