@@ -87,7 +87,11 @@
   <div id="contentEditorModal" class="content-editor-modal" hidden>
     <div class="content-editor-panel">
       <h3 id="contentEditorTitle">Edytuj treść</h3>
-      <textarea id="contentEditorTextarea" rows="16" aria-label="Treść do edycji"></textarea>
+        <div id="contentEditorToolbar" class="content-editor-toolbar" hidden>
+          <button type="button" class="btn-outline" data-editor-format="bold"><strong>B</strong></button>
+          <button type="button" class="btn-outline" data-editor-format="bullet">Dodaj myślnik</button>
+        </div>
+        <textarea id="contentEditorTextarea" rows="16" aria-label="Treść do edycji"></textarea>
       <div class="content-editor-actions">
         <button type="button" id="contentEditorCancel" class="btn-outline">Anuluj</button>
         <button type="button" id="contentEditorSave" class="btn-primary">Zapisz</button>
@@ -270,12 +274,21 @@
       `).join('');
     }
 
+    function formatMenuText(value) {
+      const escaped = String(value || '').replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
+      return escaped.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    }
+
     function renderMenu() {
       const list = document.getElementById('menuList');
       if (!list) return;
-      list.innerHTML = (siteContent.menu || defaultMenu).map(item => `
-        <p><strong>${item.title || 'Pozycja'}:</strong> ${item.text || ''}</p>
-      `).join('');
+      list.innerHTML = (siteContent.menu || defaultMenu).map(item => {
+        const text = String(item.text || '');
+        const bullet = text.trimStart().startsWith('- ');
+        const cleanText = bullet ? text.trimStart().slice(2) : text;
+        const title = item.title ? `<strong>${formatMenuText(item.title)}:</strong> ` : '';
+        return `<p${bullet ? ' class="menu-bullet"' : ''}>${title}${formatMenuText(cleanText)}</p>`;
+      }).join('');
     }
 
     function isAdmin() {
@@ -302,8 +315,24 @@
       return (value || '').split('\n').map(line => line.trim()).filter(Boolean).map(line => {
         const match = line.match(/^\s*(.+?)\s*:\s*(.+?)\s*$/);
         if (match) return { title: match[1].trim(), text: match[2].trim() };
-        return { title: 'Pozycja', text: line.trim() };
+        return { title: '', text: line.trim() };
       });
+    }
+
+    function applyEditorFormat(format) {
+      const editor = document.getElementById('contentEditorTextarea');
+      if (!editor) return;
+      const start = editor.selectionStart;
+      const end = editor.selectionEnd;
+      const selected = editor.value.slice(start, end);
+      if (format === 'bold') {
+        editor.setRangeText(`**${selected || 'pogrubiony tekst'}**`, start, end, 'select');
+      } else if (format === 'bullet') {
+        const lineStart = editor.value.lastIndexOf('\n', start - 1) + 1;
+        const prefix = editor.value.slice(lineStart, start).trimStart().startsWith('- ') ? '' : '- ';
+        editor.setRangeText(prefix, lineStart, lineStart, 'end');
+      }
+      editor.focus();
     }
 
     function openContentEditor(type) {
@@ -317,8 +346,9 @@
         editor.value = (siteContent.schedule || defaultSchedule).map(item => `${item.time || ''} | ${item.label || ''}`).join('\n');
       } else {
         title.textContent = 'Edytuj menu weselne';
-        editor.value = (siteContent.menu || defaultMenu).map(item => `${item.title || 'Pozycja'}: ${item.text || ''}`).join('\n');
+        editor.value = (siteContent.menu || defaultMenu).map(item => item.title ? `${item.title}: ${item.text || ''}` : (item.text || '')).join('\n');
       }
+      document.getElementById('contentEditorToolbar').hidden = type !== 'menu';
       modal.hidden = false;
       editor.focus();
       window.currentContentEditor = type;
@@ -565,6 +595,9 @@
     document.getElementById('chatSend').addEventListener('click', async ()=>{ const author=document.getElementById('chatAuthor').value; const message=document.getElementById('chatMessage').value.trim(); if(!author) return alert('Wybierz osobę.'); if(!message) return; const response=await fetch(API_BASE+'/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({author,message})}); if(response.ok){document.getElementById('chatMessage').value=''; loadChat();} else alert('Nie udało się wysłać wiadomości.'); });
     document.querySelectorAll('[data-edit-target]').forEach(button => {
       button.addEventListener('click', () => openContentEditor(button.dataset.editTarget));
+    });
+    document.querySelectorAll('[data-editor-format]').forEach(button => {
+      button.addEventListener('click', () => applyEditorFormat(button.dataset.editorFormat));
     });
     document.getElementById('contentEditorCancel').addEventListener('click', closeContentEditor);
     document.getElementById('contentEditorSave').addEventListener('click', saveSiteContent);
