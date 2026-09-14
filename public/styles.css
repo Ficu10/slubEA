@@ -98,10 +98,11 @@ footer{display:flex;justify-content:center;padding:18px 0;color:var(--muted);fon
 .seating-link span:nth-child(3n+2){animation-delay:.135s}
 .seating-link span:nth-child(3n){animation-delay:.27s}
 @keyframes seating-letter-scatter{
-	0%,100%{transform:translate(0,0) rotate(0deg)}
-	28%{transform:translate(calc((var(--scatter-x, 1) * 1px)),calc((var(--scatter-y, 1) * 1px))) rotate(-10deg)}
-	52%{transform:translate(calc((var(--scatter-x, 1) * -1px)),calc((var(--scatter-y, 1) * -1px))) rotate(8deg)}
-	74%{transform:translate(0,0) rotate(-2deg)}
+	0%,32%{transform:translate(0,0) rotate(0deg)}
+	38%{transform:translate(calc((var(--scatter-x, 1) * 1px)),calc((var(--scatter-y, 1) * 1px))) rotate(-10deg)}
+	58%{transform:translate(calc((var(--scatter-x, 1) * -1px)),calc((var(--scatter-y, 1) * -1px))) rotate(8deg)}
+	76%{transform:translate(0,0) rotate(-2deg)}
+	100%{transform:translate(0,0) rotate(0deg)}
 }
 .seating-link span:nth-child(4n+1){--scatter-x:-3;--scatter-y:-5}
 .seating-link span:nth-child(4n+2){--scatter-x:4;--scatter-y:3}
