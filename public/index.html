@@ -100,9 +100,16 @@
           </select>
           <select id="editorSizeSelect" aria-label="Rozmiar tekstu">
             <option value="">Rozmiar</option>
-            <option value="small">Mały</option>
-            <option value="normal">Normalny</option>
-            <option value="large">Duży</option>
+            <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
+            <option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option>
+            <option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option>
+            <option value="16">16</option><option value="17">17</option><option value="18">18</option><option value="19">19</option><option value="20">20</option>
+            <option value="21">21</option><option value="22">22</option><option value="23">23</option><option value="24">24</option><option value="25">25</option>
+            <option value="26">26</option><option value="27">27</option><option value="28">28</option><option value="29">29</option><option value="30">30</option>
+            <option value="31">31</option><option value="32">32</option><option value="33">33</option><option value="34">34</option><option value="35">35</option>
+            <option value="36">36</option><option value="37">37</option><option value="38">38</option><option value="39">39</option><option value="40">40</option>
+            <option value="41">41</option><option value="42">42</option><option value="43">43</option><option value="44">44</option><option value="45">45</option>
+            <option value="46">46</option><option value="47">47</option><option value="48">48</option><option value="49">49</option><option value="50">50</option>
           </select>
           <select id="editorAlignSelect" aria-label="Wyrównanie">
             <option value="">Wyrównanie</option>
@@ -111,7 +118,7 @@
             <option value="right">Do prawej</option>
           </select>
         </div>
-        <textarea id="contentEditorTextarea" rows="16" aria-label="Treść do edycji"></textarea>
+        <div id="contentEditor" class="content-editor" contenteditable="true" role="textbox" aria-label="Treść do edycji"></div>
       <div class="content-editor-actions">
         <button type="button" id="contentEditorCancel" class="btn-outline">Anuluj</button>
         <button type="button" id="contentEditorSave" class="btn-primary">Zapisz</button>
@@ -285,12 +292,25 @@
       { title: 'Napoje', text: 'kawa, herbata, soki, woda' }
     ];
     let siteContent = { schedule: defaultSchedule.slice(), menu: defaultMenu.slice() };
+    let savedEditorRange = null;
+
+    function rememberEditorRange() {
+      const editor = document.getElementById('contentEditor');
+      const selection = window.getSelection();
+      if (!editor || !selection || !selection.rangeCount) return;
+      const range = selection.getRangeAt(0);
+      if (editor.contains(range.commonAncestorContainer)) savedEditorRange = range.cloneRange();
+    }
+
+    document.addEventListener('selectionchange', () => {
+      rememberEditorRange();
+    });
 
     function renderSchedule() {
       const list = document.getElementById('scheduleList');
       if (!list) return;
       list.innerHTML = (siteContent.schedule || defaultSchedule).map(item => `
-        <div><strong>${item.time || ''}</strong><span>${formatText(item.label || '')}</span></div>
+        <div><strong>${item.time || ''}</strong><span>${item.html || formatText(item.label || '')}</span></div>
       `).join('');
     }
 
@@ -317,7 +337,7 @@
         const bullet = text.trimStart().startsWith('- ');
         const cleanText = bullet ? text.trimStart().slice(2) : text;
         const title = item.title ? `<strong>${formatMenuText(item.title)}:</strong> ` : '';
-        return `<p${bullet ? ' class="menu-bullet"' : ''}>${title}${formatMenuText(cleanText)}</p>`;
+        return `<p${bullet ? ' class="menu-bullet"' : ''}>${item.html || title + formatMenuText(cleanText)}</p>`;
       }).join('');
     }
 
@@ -350,51 +370,84 @@
     }
 
     function applyEditorFormat(format, value) {
-      const editor = document.getElementById('contentEditorTextarea');
+      const editor = document.getElementById('contentEditor');
       if (!editor) return;
-      const start = editor.selectionStart;
-      const end = editor.selectionEnd;
-      const selected = editor.value.slice(start, end);
+      if (savedEditorRange) {
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(savedEditorRange);
+      }
       if (format === 'bold') {
-        editor.setRangeText(`**${selected || 'pogrubiony tekst'}**`, start, end, 'select');
+        wrapEditorSelection('strong');
       } else if (format === 'italic') {
-        editor.setRangeText(`__${selected || 'tekst'}__`, start, end, 'select');
+        wrapEditorSelection('em');
       } else if (format === 'underline') {
-        editor.setRangeText(`~~${selected || 'tekst'}~~`, start, end, 'select');
+        wrapEditorSelection('u');
       } else if (format === 'font' && value) {
-        const text = selected || 'tekst';
-        const prefix = `[[font=${value}]]`;
-        editor.setRangeText(`${prefix}${text}[[/font]]`, start, end, 'end');
-        editor.setSelectionRange(start + prefix.length, start + prefix.length + text.length);
+        wrapEditorSelection('span', `font-family:${value},Georgia,serif`);
       } else if (format === 'size' && value) {
-        const text = selected || 'tekst';
-        const prefix = `[[size=${value}]]`;
-        editor.setRangeText(`${prefix}${text}[[/size]]`, start, end, 'end');
-        editor.setSelectionRange(start + prefix.length, start + prefix.length + text.length);
+        const selection = window.getSelection();
+        if (selection && selection.rangeCount && !selection.isCollapsed) {
+          const range = selection.getRangeAt(0);
+          const span = document.createElement('span');
+          span.style.fontSize = `${value}px`;
+          span.appendChild(range.extractContents());
+          range.insertNode(span);
+          selection.removeAllRanges();
+          selection.addRange(range);
+        }
       } else if (format === 'align' && value) {
-        const text = selected || 'tekst';
-        const prefix = `[[align=${value}]]`;
-        editor.setRangeText(`${prefix}${text}[[/align]]`, start, end, 'end');
-        editor.setSelectionRange(start + prefix.length, start + prefix.length + text.length);
+        document.execCommand(`justify${value === 'center' ? 'Center' : value === 'right' ? 'Right' : 'Left'}`);
       }
       editor.focus();
+      savedEditorRange = null;
+    }
+
+    function wrapEditorSelection(tagName, style) {
+      if (!savedEditorRange || savedEditorRange.collapsed) return;
+      const range = savedEditorRange.cloneRange();
+      const wrapper = document.createElement(tagName);
+      if (style) wrapper.setAttribute('style', style);
+      wrapper.appendChild(range.extractContents());
+      range.insertNode(wrapper);
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }
+
+    function editorHtmlToContent(type, html) {
+      const container = document.createElement('div');
+      container.innerHTML = html;
+      const rows = Array.from(container.children).filter(node => node.textContent.trim());
+      if (type === 'schedule') return rows.map(row => {
+        const time = row.querySelector('strong');
+        const label = row.querySelector('span') || row;
+        return { time: time ? time.textContent.trim() : '', label: label.textContent.trim(), html: label.innerHTML };
+      }).filter(item => item.time || item.label);
+      return rows.map(row => {
+        const title = row.querySelector('strong');
+        const clone = row.cloneNode(true);
+        if (clone.querySelector('strong')) clone.querySelector('strong').remove();
+        return { title: title ? title.textContent.replace(/:\s*$/, '').trim() : '', text: clone.textContent.trim(), html: clone.innerHTML.trim() };
+      }).filter(item => item.text || item.title);
     }
 
     function openContentEditor(type) {
       const modal = document.getElementById('contentEditorModal');
-      const editor = document.getElementById('contentEditorTextarea');
+      const editor = document.getElementById('contentEditor');
       const title = document.getElementById('contentEditorTitle');
       if (!modal || !editor || !title) return;
 
       if (type === 'schedule') {
         title.textContent = 'Edytuj plan dnia';
-        editor.value = (siteContent.schedule || defaultSchedule).map(item => `${item.time || ''} | ${item.label || ''}`).join('\n');
+        editor.innerHTML = (siteContent.schedule || defaultSchedule).map(item => `<div><strong>${item.time || ''}</strong> | <span>${item.html || formatText(item.label || '')}</span></div>`).join('');
       } else {
         title.textContent = 'Edytuj menu weselne';
-        editor.value = (siteContent.menu || defaultMenu).map(item => item.title ? `${item.title}: ${item.text || ''}` : (item.text || '')).join('\n');
+        editor.innerHTML = (siteContent.menu || defaultMenu).map(item => `<p>${item.html || (item.title ? `<strong>${item.title}:</strong> ${formatMenuText(item.text || '')}` : formatMenuText(item.text || ''))}</p>`).join('');
       }
       modal.hidden = false;
       editor.focus();
+      savedEditorRange = null;
       window.currentContentEditor = type;
     }
 
@@ -406,12 +459,12 @@
 
     async function saveSiteContent() {
       const modal = document.getElementById('contentEditorModal');
-      const editor = document.getElementById('contentEditorTextarea');
+      const editor = document.getElementById('contentEditor');
       if (!modal || !editor || !window.currentContentEditor) return;
 
       const payload = window.currentContentEditor === 'schedule'
-        ? { schedule: parseScheduleText(editor.value), menu: siteContent.menu || defaultMenu }
-        : { schedule: siteContent.schedule || defaultSchedule, menu: parseMenuText(editor.value) };
+        ? { schedule: editorHtmlToContent('schedule', editor.innerHTML), menu: siteContent.menu || defaultMenu }
+        : { schedule: siteContent.schedule || defaultSchedule, menu: editorHtmlToContent('menu', editor.innerHTML) };
 
       const token = localStorage.getItem('adminToken');
       const response = await fetch((window.API_URL || '') + '/api/site-content', {
@@ -641,6 +694,7 @@
       button.addEventListener('click', () => openContentEditor(button.dataset.editTarget));
     });
     document.querySelectorAll('[data-editor-format]').forEach(button => {
+      button.addEventListener('mousedown', event => { rememberEditorRange(); event.preventDefault(); });
       button.addEventListener('click', () => applyEditorFormat(button.dataset.editorFormat));
     });
     document.getElementById('editorFontSelect').addEventListener('change', event => {
