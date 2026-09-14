@@ -87,8 +87,10 @@
   <div id="contentEditorModal" class="content-editor-modal" hidden>
     <div class="content-editor-panel">
       <h3 id="contentEditorTitle">Edytuj treść</h3>
-        <div id="contentEditorToolbar" class="content-editor-toolbar" hidden>
+        <div id="contentEditorToolbar" class="content-editor-toolbar">
           <button type="button" class="btn-outline" data-editor-format="bold"><strong>B</strong></button>
+          <button type="button" class="btn-outline" data-editor-format="italic"><em>I</em></button>
+          <button type="button" class="btn-outline" data-editor-format="underline"><u>U</u></button>
           <select id="editorFontSelect" aria-label="Czcionka">
             <option value="">Czcionka</option>
             <option value="Georgia">Georgia</option>
@@ -101,6 +103,12 @@
             <option value="small">Mały</option>
             <option value="normal">Normalny</option>
             <option value="large">Duży</option>
+          </select>
+          <select id="editorAlignSelect" aria-label="Wyrównanie">
+            <option value="">Wyrównanie</option>
+            <option value="left">Do lewej</option>
+            <option value="center">Wyśrodkuj</option>
+            <option value="right">Do prawej</option>
           </select>
         </div>
         <textarea id="contentEditorTextarea" rows="16" aria-label="Treść do edycji"></textarea>
@@ -282,16 +290,23 @@
       const list = document.getElementById('scheduleList');
       if (!list) return;
       list.innerHTML = (siteContent.schedule || defaultSchedule).map(item => `
-        <div><strong>${item.time || ''}</strong><span>${item.label || ''}</span></div>
+        <div><strong>${item.time || ''}</strong><span>${formatText(item.label || '')}</span></div>
       `).join('');
     }
 
-    function formatMenuText(value) {
+    function formatText(value) {
       const escaped = String(value || '').replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
       return escaped
         .replace(/\[\[font=(Georgia|Merriweather|Playfair Display|Poppins)\]\]([\s\S]*?)\[\[\/font\]\]/g, '<span style="font-family:$1,Georgia,serif">$2</span>')
         .replace(/\[\[size=(small|normal|large)\]\]([\s\S]*?)\[\[\/size\]\]/g, (_, size, text) => `<span class="menu-size-${size}">${text}</span>`)
-        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+        .replace(/\[\[align=(left|center|right)\]\]([\s\S]*?)\[\[\/align\]\]/g, (_, align, text) => `<span class="menu-align-${align}">${text}</span>`)
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/__(.+?)__/g, '<em>$1</em>')
+        .replace(/~~(.+?)~~/g, '<u>$1</u>');
+    }
+
+    function formatMenuText(value) {
+      return formatText(value);
     }
 
     function renderMenu() {
@@ -342,6 +357,10 @@
       const selected = editor.value.slice(start, end);
       if (format === 'bold') {
         editor.setRangeText(`**${selected || 'pogrubiony tekst'}**`, start, end, 'select');
+      } else if (format === 'italic') {
+        editor.setRangeText(`__${selected || 'tekst'}__`, start, end, 'select');
+      } else if (format === 'underline') {
+        editor.setRangeText(`~~${selected || 'tekst'}~~`, start, end, 'select');
       } else if (format === 'font' && value) {
         const text = selected || 'tekst';
         const prefix = `[[font=${value}]]`;
@@ -351,6 +370,11 @@
         const text = selected || 'tekst';
         const prefix = `[[size=${value}]]`;
         editor.setRangeText(`${prefix}${text}[[/size]]`, start, end, 'end');
+        editor.setSelectionRange(start + prefix.length, start + prefix.length + text.length);
+      } else if (format === 'align' && value) {
+        const text = selected || 'tekst';
+        const prefix = `[[align=${value}]]`;
+        editor.setRangeText(`${prefix}${text}[[/align]]`, start, end, 'end');
         editor.setSelectionRange(start + prefix.length, start + prefix.length + text.length);
       }
       editor.focus();
@@ -369,7 +393,6 @@
         title.textContent = 'Edytuj menu weselne';
         editor.value = (siteContent.menu || defaultMenu).map(item => item.title ? `${item.title}: ${item.text || ''}` : (item.text || '')).join('\n');
       }
-      document.getElementById('contentEditorToolbar').hidden = type !== 'menu';
       modal.hidden = false;
       editor.focus();
       window.currentContentEditor = type;
@@ -626,6 +649,10 @@
     });
     document.getElementById('editorSizeSelect').addEventListener('change', event => {
       applyEditorFormat('size', event.target.value);
+      event.target.value = '';
+    });
+    document.getElementById('editorAlignSelect').addEventListener('change', event => {
+      applyEditorFormat('align', event.target.value);
       event.target.value = '';
     });
     document.getElementById('contentEditorCancel').addEventListener('click', closeContentEditor);
