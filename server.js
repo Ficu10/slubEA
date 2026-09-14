@@ -127,6 +127,7 @@ const DATA_DIR = path.join(__dirname, 'data');
 const SEATING_FILE = path.join(DATA_DIR, 'seating.json');
 const CHAT_FILE = path.join(DATA_DIR, 'chat.json');
 const SITE_CONTENT_FILE = path.join(DATA_DIR, 'site-content.json');
+const SESSIONS_FILE = path.join(DATA_DIR, 'sessions.json');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 // ensure seating file exists
 if (!fs.existsSync(SEATING_FILE)) {
@@ -134,6 +135,7 @@ if (!fs.existsSync(SEATING_FILE)) {
   fs.writeFileSync(SEATING_FILE, JSON.stringify(defaultSeating, null, 2));
 }
 if (!fs.existsSync(CHAT_FILE)) fs.writeFileSync(CHAT_FILE, JSON.stringify({ messages: [] }, null, 2));
+if (!fs.existsSync(SESSIONS_FILE)) fs.writeFileSync(SESSIONS_FILE, JSON.stringify({ tokens: [] }, null, 2));
 
 const defaultSiteContent = {
   schedule: [
@@ -261,14 +263,32 @@ app.post('/api/upload', upload.array('files', 50), async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// Simple in-memory session store for admin tokens
-const sessions = new Set();
+// Persisted admin sessions so tokens survive server restarts
+function loadSessions() {
+  try {
+    const data = JSON.parse(fs.readFileSync(SESSIONS_FILE, 'utf8'));
+    return new Set(Array.isArray(data.tokens) ? data.tokens : []);
+  } catch (_) {
+    return new Set();
+  }
+}
+
+function saveSessions() {
+  try {
+    fs.writeFileSync(SESSIONS_FILE, JSON.stringify({ tokens: Array.from(sessions) }, null, 2));
+  } catch (_) {
+    // ignore write errors for now; session is still valid in memory for this process
+  }
+}
+
+const sessions = loadSessions();
 
 app.post('/api/login', (req, res) => {
   const { user, pass } = req.body || {};
   if (user === 'emilka' && pass === 'adas'){
     const token = require('crypto').randomBytes(24).toString('hex');
     sessions.add(token);
+    saveSessions();
     return res.json({ success: true, token });
   }
   res.status(401).json({ success: false });
