@@ -1,10 +1,11 @@
 (function(){
   const base = window.API_URL || '';
+  const CDN_BASE = 'https://cdn.emilkaiadas.pl';
   const type = document.body.dataset.mediaType;
   const box = document.getElementById('mediaGrid');
   let items = [];
   let current = 0;
-  const urlFor = item => item.key ? base + '/api/zdjecia?key=' + encodeURIComponent(item.key) : item.url;
+  const urlFor = item => item.key ? CDN_BASE + '/' + item.key.split('/').map(encodeURIComponent).join('/') : item.url;
 
   function closePreview(){
     const modal = document.getElementById('mediaPreview');

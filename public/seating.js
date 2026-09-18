@@ -50,9 +50,10 @@
   // UTIL
   function isAdmin(){ return !!localStorage.getItem('adminToken'); }
   function saveLocal(){ localStorage.setItem(seatingKey, JSON.stringify({ positions, assignments, drawings })); }
+  const CDN_BASE = 'https://cdn.emilkaiadas.pl';
   function avatarImageUrl(avatar){
     if (!avatar) return null;
-    if (avatar.key) return API_BASE + '/api/zdjecia?key=' + encodeURIComponent(avatar.key);
+    if (avatar.key) return CDN_BASE + '/' + avatar.key.split('/').map(encodeURIComponent).join('/');
     return avatar.url || null;
   }
   function snapAvatarPosition(x, y){

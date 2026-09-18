@@ -736,7 +736,7 @@
       function render(){
         const item = gallery[index];
         if (!item) return;
-        let url = item.url || (item.key ? API_BASE + '/api/zdjecia?key=' + encodeURIComponent(item.key) : null);
+        let url = item.url || (item.key ? 'https://cdn.emilkaiadas.pl/' + item.key.split('/').map(encodeURIComponent).join('/') : null);
         if (!url) return;
         const isVideo = (item.type === 'video') || /\.mp4$|\.mov$|\.webm$/i.test(item.name || (item.key||''));
 
