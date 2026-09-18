@@ -40,7 +40,7 @@ button:hover{transform:translateY(-1px)}
 
 /* Decorative olive leaves in header and footer using pseudo-elements */
 header::before, header::after{
- 	content:'';position:absolute;width:160px;height:80px;background-image:url('/assets/branch.svg');background-size:contain;background-repeat:no-repeat;opacity:0.9;transform:translateY(-10%);pointer-events:none;z-index:0;
+ 	content:'';position:absolute;width:160px;height:80px;background-image:url('/assets/branch.svg');background-size:contain;background-repeat:no-repeat;opacity:0.9;transform:translateY(-10%);pointer-events:none;z-index:-1;
 }
 header::before{left:-14px;top:4px;transform:rotate(-12deg) scale(1)}
 /* move right branch lower so it sits under the login button */
@@ -67,10 +67,10 @@ footer{display:flex;justify-content:center;padding:18px 0;color:var(--muted);fon
 /* Decorative olives on info and uploader panels */
 .info, .uploader{position:relative}
 .info::before{
-	content:'';position:absolute;left:-18px;top:-24px;width:100px;height:48px;background-image:url('/assets/branch.svg');background-size:contain;background-repeat:no-repeat;opacity:0.9;transform:rotate(-6deg);
+	content:'';position:absolute;left:-18px;top:-24px;width:100px;height:48px;background-image:url('/assets/branch.svg');background-size:contain;background-repeat:no-repeat;opacity:0.9;transform:rotate(-6deg);pointer-events:none;z-index:-1;
 }
 .uploader::after{
-	content:'';position:absolute;right:-12px;bottom:-12px;width:36px;height:36px;background-image:url('/assets/olive.svg');background-size:contain;background-repeat:no-repeat;opacity:0.95;
+	content:'';position:absolute;right:-12px;bottom:-12px;width:36px;height:36px;background-image:url('/assets/olive.svg');background-size:contain;background-repeat:no-repeat;opacity:0.95;pointer-events:none;z-index:-1;
 }
 
 /* seating page small tweaks */
