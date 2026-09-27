@@ -1,15 +1,28 @@
 (function(){
   const base = window.API_URL || '';
+
+  // Cloudflare R2 Custom Domain - podgląd zdjęć i filmów
   const CDN_BASE = 'https://cdn.emilkaiadas.pl';
+
+  // Cloudflare Worker - wymusza pobieranie pliku
+  const DOWNLOAD_BASE = 'https://r2-download.adficu.workers.dev';
+
   const type = document.body.dataset.mediaType;
   const box = document.getElementById('mediaGrid');
 
   let items = [];
   let current = 0;
 
+  // URL używany do wyświetlania zdjęć i filmów
   const urlFor = item =>
     item.key
       ? CDN_BASE + '/' + item.key.split('/').map(encodeURIComponent).join('/')
+      : item.url;
+
+  // URL używany wyłącznie do pobierania
+  const downloadUrlFor = item =>
+    item.key
+      ? DOWNLOAD_BASE + '/' + item.key.split('/').map(encodeURIComponent).join('/')
       : item.url;
 
   function closePreview(){
@@ -37,24 +50,25 @@
   }
 
   /*
-   * Pobieranie odbywa się bezpośrednio z Cloudflare CDN.
+   * Pobieranie odbywa się przez Cloudflare Worker.
    *
-   * NIE używamy tutaj:
-   *   fetch()
-   *   response.blob()
-   *   URL.createObjectURL()
+   * Worker pobiera plik bezpośrednio z R2
+   * i zwraca go z nagłówkiem:
    *
-   * Dzięki temu plik nie jest przesyłany przez Vercel.
+   * Content-Disposition: attachment
+   *
+   * Dzięki temu przeglądarka pobiera plik,
+   * zamiast otwierać go w nowej karcie.
+   *
+   * Vercel nie przesyła tutaj danych pliku.
    */
   function downloadFile(item){
-    const url = urlFor(item);
+    const url = downloadUrlFor(item);
 
     const link = document.createElement('a');
 
     link.href = url;
     link.download = item.name || 'plik';
-
-    // Dodatkowa informacja dla przeglądarki.
     link.rel = 'noopener';
 
     document.body.appendChild(link);
@@ -123,6 +137,7 @@
         ? document.createElement('video')
         : document.createElement('img');
 
+    // Podgląd nadal bezpośrednio z Cloudflare CDN
     content.src = urlFor(item);
     content.alt = item.name || '';
     content.className = 'media-content';
@@ -153,11 +168,11 @@
   /*
    * Lista plików nadal jest pobierana z API.
    *
-   * To API zwraca tylko informacje o plikach
-   * (np. key, name, type).
+   * API zwraca tylko informacje o plikach:
+   * key, name, type itd.
    *
-   * Same zdjęcia i filmy są następnie ładowane
-   * bezpośrednio z Cloudflare CDN.
+   * Same zdjęcia i filmy są ładowane bezpośrednio
+   * z Cloudflare CDN.
    */
   (async function(){
     try {
@@ -190,6 +205,7 @@
             ? document.createElement('video')
             : document.createElement('img');
 
+        // Miniaturka bezpośrednio z Cloudflare CDN
         thumb.src = urlFor(item);
         thumb.alt = item.name || '';
 
@@ -214,4 +230,3 @@
   })();
 
 })();
-
