@@ -3,6 +3,7 @@
   const CDN_BASE = 'https://cdn.emilkaiadas.pl';
   const type = document.body.dataset.mediaType;
   const box = document.getElementById('mediaGrid');
+
   let items = [];
   let current = 0;
 
@@ -13,45 +14,52 @@
 
   function closePreview(){
     const modal = document.getElementById('mediaPreview');
-    if (modal) modal.remove();
+
+    if (modal) {
+      modal.remove();
+    }
+
     document.removeEventListener('keydown', onKey);
   }
 
   function onKey(event){
-    if (event.key === 'ArrowLeft')
+    if (event.key === 'ArrowLeft') {
       showPreview((current - 1 + items.length) % items.length);
+    }
 
-    if (event.key === 'ArrowRight')
+    if (event.key === 'ArrowRight') {
       showPreview((current + 1) % items.length);
+    }
 
-    if (event.key === 'Escape')
+    if (event.key === 'Escape') {
       closePreview();
+    }
   }
 
-  async function downloadFile(item){
-    try {
-      const response = await fetch(urlFor(item));
+  /*
+   * Pobieranie odbywa się bezpośrednio z Cloudflare CDN.
+   *
+   * NIE używamy tutaj:
+   *   fetch()
+   *   response.blob()
+   *   URL.createObjectURL()
+   *
+   * Dzięki temu plik nie jest przesyłany przez Vercel.
+   */
+  function downloadFile(item){
+    const url = urlFor(item);
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
+    const link = document.createElement('a');
 
-      const blob = await response.blob();
-      const blobUrl = URL.createObjectURL(blob);
+    link.href = url;
+    link.download = item.name || 'plik';
 
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = item.name || 'plik';
+    // Dodatkowa informacja dla przeglądarki.
+    link.rel = 'noopener';
 
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
-    } catch (error) {
-      console.error('Błąd pobierania:', error);
-      alert('Nie udało się pobrać pliku.');
-    }
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
   }
 
   function showPreview(index){
@@ -63,6 +71,7 @@
       modal = document.createElement('div');
       modal.id = 'mediaPreview';
       modal.className = 'media-preview';
+
       document.body.appendChild(modal);
     }
 
@@ -75,12 +84,15 @@
     close.className = 'media-close';
     close.textContent = '×';
     close.title = 'Zamknij';
+    close.type = 'button';
     close.onclick = closePreview;
 
     const previous = document.createElement('button');
     previous.className = 'media-nav media-prev';
     previous.textContent = '‹';
     previous.title = 'Poprzedni';
+    previous.type = 'button';
+
     previous.onclick = () =>
       showPreview((current - 1 + items.length) % items.length);
 
@@ -88,6 +100,8 @@
     next.className = 'media-nav media-next';
     next.textContent = '›';
     next.title = 'Następny';
+    next.type = 'button';
+
     next.onclick = () =>
       showPreview((current + 1) % items.length);
 
@@ -95,20 +109,13 @@
     download.className = 'media-download';
     download.textContent = '⇩';
     download.title = 'Pobierz';
+    download.type = 'button';
 
-    download.onclick = async (event) => {
+    download.onclick = event => {
       event.preventDefault();
       event.stopPropagation();
 
-      download.disabled = true;
-      download.textContent = '…';
-
-      try {
-        await downloadFile(item);
-      } finally {
-        download.disabled = false;
-        download.textContent = '⇩';
-      }
+      downloadFile(item);
     };
 
     const content =
@@ -123,6 +130,7 @@
     if (item.type === 'video'){
       content.controls = true;
       content.autoplay = true;
+      content.playsInline = true;
     }
 
     modal.append(
@@ -133,16 +141,31 @@
       content
     );
 
-    modal.onclick = e => {
-      if (e.target === modal) closePreview();
+    modal.onclick = event => {
+      if (event.target === modal) {
+        closePreview();
+      }
     };
 
     document.addEventListener('keydown', onKey);
   }
 
+  /*
+   * Lista plików nadal jest pobierana z API.
+   *
+   * To API zwraca tylko informacje o plikach
+   * (np. key, name, type).
+   *
+   * Same zdjęcia i filmy są następnie ładowane
+   * bezpośrednio z Cloudflare CDN.
+   */
   (async function(){
     try {
       const response = await fetch(base + '/api/files');
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
 
       items = (await response.json())
         .filter(item => item.type === type);
@@ -154,6 +177,7 @@
           '<p>Brak przesłanych ' +
           (type === 'image' ? 'zdjęć.' : 'filmów.') +
           '</p>';
+
         return;
       }
 
@@ -172,15 +196,22 @@
         if (item.type === 'video'){
           thumb.muted = true;
           thumb.preload = 'metadata';
+          thumb.playsInline = true;
         }
 
         card.appendChild(thumb);
+
         card.onclick = () => showPreview(index);
+
         box.appendChild(card);
       });
 
-    } catch(_){
+    } catch(error){
+      console.error('Błąd pobierania listy plików:', error);
+
       box.textContent = 'Nie udało się pobrać plików.';
     }
   })();
+
 })();
+
